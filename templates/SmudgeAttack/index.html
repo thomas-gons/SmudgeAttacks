@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+                integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+                crossorigin="anonymous">
+        </script>
+        <script src={% static 'js/script.js' %}></script>
+        <script src={% static 'js/polygon.js' %}></script>
+        <link rel="stylesheet" href={% static 'css/styles.css' %}>
+        <title>Smudge Attack</title>
+    </head>
+    <body>
+        <form method="POST" id="image-form">
+            <input type="file" name="image" id="image" accept="image/*"><br>
+            <input type="submit" value="Submit" id="submit-form" style="visibility: hidden;">
+        </form>
+        <div id="preview">
+            <canvas id="image-preview"></canvas>
+            <input type="range" id="brightness" min="50" max="300" value="100">
+        </div>
+    </body>
+</html>

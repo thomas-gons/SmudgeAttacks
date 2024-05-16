@@ -1,0 +1,16 @@
+#preview {
+    visibility: hidden;
+}
+
+#image-preview {
+    width: 640px;
+    height: 640px;
+}
+
+#brightness {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 8px;
+    height: 320px;
+}
+
