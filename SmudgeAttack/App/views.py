@@ -10,7 +10,6 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-
 WIDTH = 640
 HEIGHT = 640
 
@@ -22,13 +21,17 @@ class BoundingBox:
     h: int
 
     def __init__(self, *args):
-        if len(args) == 1 and isinstance(args[0], list):
-            self.x, self.y = args[0][0]
-            self.w, self.h = args[0][1]
+        if len(args) == 1:
+            if isinstance(args[0], list):
+                self.x, self.y = args[0][0]
+                self.w, self.h = args[0][1]
+            else:
+                self.x, self.y, self.w, self.h = args[0]
+
         elif len(args) == 4:
             self.x, self.y, self.w, self.h = args
         else:
-            raise ValueError('Invalid number of arguments')
+            raise ValueError("Bad arguments")
 
     @classmethod
     def random_init(cls, bounds: Tuple[int, int] = (WIDTH, HEIGHT), size: Tuple[int, int] = (50, 50)):
@@ -42,7 +45,8 @@ class BoundingBox:
         return f"BoundingBox({self.x}, {self.y}, {self.w}, {self.h})"
 
     def __dict__(self):
-        return {'tl': [self.x, self.y], 'tr': [self.x + self.w, self.y], 'bl': [self.x, self.y + self.h], 'br': [self.x + self.w, self.y + self.h]}
+        return {'tl': [self.x, self.y], 'tr': [self.x + self.w, self.y], 'bl': [self.x, self.y + self.h],
+                'br': [self.x + self.w, self.y + self.h]}
 
     def xyxy(self) -> List[int]:
         return [self.x, self.y, self.x + self.w, self.y + self.h]
@@ -60,19 +64,24 @@ class BoundingBox:
     def from_json(json_data: Dict[str, int]) -> 'BoundingBox':
         return BoundingBox(json_data['x'], json_data['y'], json_data['w'], json_data['h'])
 
-    def save_xywh(self, f: TextIO):
-        f.write(f'[{self.x}, {self.y}, {self.w}, {self.h}]')
+    @property
+    def fmt_xywh(self) -> str:
+        return f'[{self.x}, {self.y}, {self.w}, {self.h}]'
 
-    def save_xyxy(self, f: TextIO):
-        f.write(f'[[{self.x}, {self.y}], [{self.x + self.w}, {self.y + self.h}]]')
+    @property
+    def fmt_xyxy(self) -> str:
+        return f'[[{self.x}, {self.y}], [{self.x + self.w}, {self.y + self.h}]]'
 
 
-def sample_bb(data):
-    iphone = data['Iphone X']
-    for i in range(10):
-        iphone[i] = BoundingBox.random_init()
+def parse_bb_json(data) -> Any:
+    if '0' not in data:
+        return data
+    return [BoundingBox(v) for k, v in data.items()]
 
-    return data
+
+def sample_bb(refs):
+    for ref in refs:
+        bb_refs[ref] = [BoundingBox.random_init() for i in range(10)]
 
 
 def save_bb(data: Dict[str, List[BoundingBox]]) -> None:
@@ -86,7 +95,7 @@ def save_bb(data: Dict[str, List[BoundingBox]]) -> None:
             f.write(f'"{key}": {{\n')
             for i in range(10):
                 indent(2)
-                f.write(f'"{i}": {value[i]}{"," if i != 9 else ""}\n')
+                f.write(f'"{i}": {value[i].fmt_xywh}{"," if i != 9 else ""}\n')
 
             indent(1)
             f.write(f'}}{"," if key != last else ""}\n')
@@ -100,18 +109,18 @@ class ModelWrapper:
         self.model_smudge_detection = YOLO('assets/weights/best.pt')
         self.model_digit_detection = YOLO('assets/weights/best.pt')
 
-    def segment_phone(self, image: np.ndarray, **kwargs) -> List[BoundingBox]:
-        result = self.model_phone_segmentation(image, **kwargs)
+    def segment_phone(self, image: np.ndarray) -> List[BoundingBox]:
+        result = self.model_phone_segmentation(image)
         boxes = result[0].boxes.xywh.numpy()
         return [BoundingBox(box) for box in boxes]
 
-    def detect_smudge(self, image: np.ndarray, **kwargs) -> List[BoundingBox]:
-        result = self.model_smudge_detection(image, **kwargs)
+    def detect_smudge(self, image: np.ndarray) -> List[BoundingBox]:
+        result = self.model_smudge_detection(image)
         boxes = result[0].boxes.xywh.numpy()
         return [BoundingBox(box) for box in boxes]
 
-    def detect_digit(self, image: np.ndarray, **kwargs) -> List[BoundingBox]:
-        result = self.model_digit_detection(image, **kwargs)
+    def detect_digit(self, image: np.ndarray) -> List[BoundingBox]:
+        result = self.model_digit_detection(image)
         boxes = result[0].boxes.xywh.numpy()
         return [BoundingBox(box) for box in boxes]
 
@@ -121,9 +130,15 @@ model_wrapper = ModelWrapper()
 
 
 def index(request):
-    global bb_refs
-    with open('assets/referenceBB.json', 'r') as f:
-        bb_refs = json.load(f, object_hook=lambda x: {k: BoundingBox(x[k]) for k in x})
+    sample_bb(["iPhone 13 Pro Max",
+               "Samsung Galaxy S21 Ultra",
+               "Google Pixel 6 Pro",
+               "OnePlus 9 Pro",
+               "Xiaomi Mi 11 Ultra"]
+              )
+    save_bb(bb_refs)
+    # with open('assets/referenceBB.json', 'r') as f:
+    #     bb_refs = json.load(f, object_hook=parse_bb_json)
 
     return render(request, "SmudgeAttack/index.html")
 
@@ -133,7 +148,7 @@ def detect_phone(request):
     image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
     image = cv2.resize(image, (WIDTH, HEIGHT))
 
-    bb = model_wrapper.segment_phone(image)
+    bbs = model_wrapper.segment_phone(image)
 
     _, encoded_image = cv2.imencode('.jpg', image)
     encode_image_data = encoded_image.tobytes()
@@ -141,7 +156,7 @@ def detect_phone(request):
 
     response = {
         'image': base64_image_data,
-        'boxes': bb.__dict__
+        'boxes': '' if bbs == [] else [bb.__dict__() for bb in bbs]
     }
     return HttpResponse(json.dumps(response), content_type="application/json")
 
