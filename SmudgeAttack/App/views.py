@@ -1,6 +1,9 @@
+import numbers
+
 from django.shortcuts import render
 from django.http import HttpResponse
 
+from matplotlib import pyplot as plt
 import json
 import base64
 import random
@@ -22,11 +25,7 @@ class BoundingBox:
 
     def __init__(self, *args):
         if len(args) == 1:
-            if isinstance(args[0], list):
-                self.x, self.y = args[0][0]
-                self.w, self.h = args[0][1]
-            else:
-                self.x, self.y, self.w, self.h = args[0]
+            self.x, self.y, self.w, self.h = args[0]
 
         elif len(args) == 4:
             self.x, self.y, self.w, self.h = args
@@ -102,17 +101,25 @@ def save_bb(data: Dict[str, List[BoundingBox]]) -> None:
 
         f.write("}")
 
-
 class ModelWrapper:
     def __init__(self):
-        self.model_phone_segmentation = YOLO('assets/weights/best.pt')
-        self.model_smudge_detection = YOLO('assets/weights/best.pt')
-        self.model_digit_detection = YOLO('assets/weights/best.pt')
+        self.model_phone_segmentation = YOLO('assets/weights/best_segX_phone.pt')
+        self.model_smudge_detection = YOLO('assets/weights/best_det_phone.pt')
+        self.model_digit_detection = YOLO('assets/weights/best_det_phone.pt')
 
-    def segment_phone(self, image: np.ndarray) -> List[BoundingBox]:
-        result = self.model_phone_segmentation(image)
-        boxes = result[0].boxes.xywh.numpy()
-        return [BoundingBox(box) for box in boxes]
+    def segment_phone(self, image: np.ndarray) -> BoundingBox:
+        results = self.model_phone_segmentation(image, save=True)
+        mask = np.array(results[0].masks[0].xy)[0]
+
+        min_point = np.min(mask, axis=0)
+        max_point = np.max(mask, axis=0)
+        box = [
+            min_point[0], min_point[1],
+            max_point[0], max_point[1]
+        ]
+        box[2] -= box[0]
+        box[3] -= box[1]
+        return BoundingBox([int(b) for b in box])
 
     def detect_smudge(self, image: np.ndarray) -> List[BoundingBox]:
         result = self.model_smudge_detection(image)
@@ -130,15 +137,16 @@ model_wrapper = ModelWrapper()
 
 
 def index(request):
-    sample_bb(["iPhone 13 Pro Max",
-               "Samsung Galaxy S21 Ultra",
-               "Google Pixel 6 Pro",
-               "OnePlus 9 Pro",
-               "Xiaomi Mi 11 Ultra"]
-              )
-    save_bb(bb_refs)
-    # with open('assets/referenceBB.json', 'r') as f:
-    #     bb_refs = json.load(f, object_hook=parse_bb_json)
+    global bb_refs
+    # sample_bb(["iPhone 13 Pro Max",
+    #            "Samsung Galaxy S21 Ultra",
+    #            "Google Pixel 6 Pro",
+    #            "OnePlus 9 Pro",
+    #            "Xiaomi Mi 11 Ultra"]
+    #           )
+    # save_bb(bb_refs)
+    with open('assets/referenceBB.json', 'r') as f:
+        bb_refs = json.load(f, object_hook=parse_bb_json)
 
     return render(request, "SmudgeAttack/index.html")
 
@@ -148,7 +156,7 @@ def detect_phone(request):
     image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
     image = cv2.resize(image, (WIDTH, HEIGHT))
 
-    bbs = model_wrapper.segment_phone(image)
+    bb = model_wrapper.segment_phone(image)
 
     _, encoded_image = cv2.imencode('.jpg', image)
     encode_image_data = encoded_image.tobytes()
@@ -156,7 +164,7 @@ def detect_phone(request):
 
     response = {
         'image': base64_image_data,
-        'boxes': '' if bbs == [] else [bb.__dict__() for bb in bbs]
+        'boxes': bb.__dict__()
     }
     return HttpResponse(json.dumps(response), content_type="application/json")
 
