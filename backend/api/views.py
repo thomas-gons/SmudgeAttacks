@@ -245,7 +245,7 @@ class DigitRecognition:
 
     def __init__(self, **kwargs):
         self.image = kwargs["img"]
-        self.bounds = kwargs.get("bounds", [20, 20])
+        self.bounds = kwargs.get("bounds", np.array([20, 20]))
         self.width_bounds = WIDTH * self.bounds
         self.height_bounds = HEIGHT * self.bounds
         self.digit_alignment_delta = kwargs.get("digit_delta_alignment", [10, 10])
@@ -266,7 +266,7 @@ class DigitRecognition:
         return clusters_xy
 
     def filter_clusters(self, clusters):
-        # get the barycenters of all clusters that aren't too near from the edges or to large
+        # get the barycenters of all clusters that aren't too near to edges or too large
         barycenters = []
         for cluster in clusters:
             # get the bounding box
@@ -276,8 +276,11 @@ class DigitRecognition:
             h = br[1] - tl[1]
             area = w * h
             barycenter = [tl[0] + w / 2, tl[1] + h / 2]
-            if area > 0.1 * (WIDTH * HEIGHT) and not (self.width_bounds[0] < barycenter[0] > self.width_bounds[1]) \
-                    and not (self.height_bounds[0] < barycenter[0] < self.height_bounds[1]):
+
+            if (area > 0.1 * (WIDTH * HEIGHT) or not
+                    ((self.width_bounds[0] < barycenter[0] < self.width_bounds[1]) and
+                    (self.height_bounds[0] < barycenter[0] < self.height_bounds[1]))):
+
                 continue
 
             barycenters.append(barycenter)
