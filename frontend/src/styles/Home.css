@@ -78,3 +78,17 @@ form input[type="submit"] {
 form input[type="submit"]:hover {
   background-color: #0056b3;
 }
+
+.newReference {
+  display: flex;
+  flex-direction: row;
+}
+
+#combo-box-demo {
+  height: 14px;
+}
+
+#addNewReference {
+  height: 45px;
+  margin-left:20px;
+}

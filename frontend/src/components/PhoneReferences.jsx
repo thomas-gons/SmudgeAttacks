@@ -87,6 +87,7 @@ const img = {
 const PhoneReferences = () => {
   const [phoneReferences, setPhoneReferences] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const [isNewReference, setIsNewReference] = useState(false)
   const [open, setOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -119,14 +120,18 @@ const PhoneReferences = () => {
     if (!inputValue) {
       displayStatus('Please enter a reference text.', 'error')
       return;
+    } else if (isNewReference === false) {
+      displayStatus('This reference already exists', 'error')
+      return
     } else if (!e.target.files || e.target.files.length === 0) {
       displayStatus('Please select a reference image.', 'error')
       return;
     }
 
+    const file = e.target.files[0];
     const formData = new FormData();
     formData.append('ref', inputValue);
-    formData.append('phone', e.target.files[0]);
+    formData.append('phone', file);
 
     api.post("/api/phone-references/add", formData)
       .then(response => {
@@ -136,20 +141,24 @@ const PhoneReferences = () => {
         }
       })
       // eslint-disable-next-line no-unused-vars
-      .catch(e => {
-        console.log('There was an error adding the reference! ')
-      });
+      .catch(err => {
+        if (err.response && err.response.status === 422) {
+               console.log("The image \"" + file.name + "\" does not appear to contain a phone")
+               displayStatus("The image \"" + file.name + "\" does not appear to contain a phone", "error")
+        }
+     });
   };
 
   const autocomplete = <Autocomplete
     disablePortal
     id="combo-box-demo"
     options={phoneReferences}
-    sx={{width: 300}}
+    sx={{width: 300, height: 45}}
     renderInput={(params) => <TextField {...params} label="Phone References"/>}
     inputValue={inputValue}
     onInputChange={(event, newInputValue) => {
-      setInputValue(newInputValue);
+        setInputValue(newInputValue);
+        setIsNewReference(!phoneReferences.includes(newInputValue) && newInputValue !== '')
     }}
     onOpen={() => setOpen(true)}
     onClose={() => setOpen(false)}
@@ -157,19 +166,25 @@ const PhoneReferences = () => {
     freeSolo
   />
 
-  const uploadNewReference = <Button
-    component="label"
-    role={undefined}
-    variant="contained"
-    tabIndex={-1}
-    startIcon={<CloudUploadIcon/>}
-  >
-    Add new reference
-    <VisuallyHiddenInput
-      type="file"
-      accept="image/*"
-      onChange={handlerAddReference}/>
-  </Button>
+  const uploadNewReference = (
+    <>
+      {isNewReference &&
+        <Button
+          component="label"
+          role={undefined}
+          variant="contained"
+          tabIndex={-1}
+          startIcon={<CloudUploadIcon/>}
+          id={'addNewReference'}
+        >
+        Add new reference
+        <VisuallyHiddenInput
+          type="file"
+          accept=".jpg, .jpeg, .png, .webp"
+          onChange={handlerAddReference}/>
+      </Button>}
+    </>
+  )
 
   const [files, setFiles] = useState([]);
   const {
@@ -223,7 +238,7 @@ const PhoneReferences = () => {
      if (!inputValue) {
        displayStatus('Please enter a reference text.', "error")
        return;
-     } else if (!phoneReferences.includes(inputValue)) {
+     } else if (isNewReference === true) {
        displayStatus('Please select an existing phone reference or add one.', 'error')
        return;
      } else if (files.length === 0) {
@@ -266,8 +281,10 @@ const PhoneReferences = () => {
 
   return (
       <div>
-        {autocomplete}
-        {uploadNewReference}
+        <div className={"newReference"}>
+          {autocomplete}
+          {uploadNewReference}
+        </div>
         <section className="container">
           <div {...getRootProps({style})}>
             <input {...getInputProps()} />

@@ -100,13 +100,29 @@ class BoundingBox:
 
 class ModelWrapper:
     def __init__(self):
-        self.model_phone_segmentation = YOLO('assets/weights/best_segX_phone.pt')
-        self.model_smudge_detection = YOLO('assets/weights/best_det_phone.pt')
+        self.model_phone_segmentation = YOLO('assets/weights/yolov8-segx-2-phone.pt')
+        self.model_smudge_detection = YOLO('assets/weights/yolov8-det-phone.pt')
 
     @staticmethod
     def approxMaskToPolygon(img, vertices, ) -> np.ndarray:
+
+        # resampling to add more points between far consecutive point
+        step = 30
+        interp_vertices = []
+        for i in range(len(vertices)):
+            start = vertices[i]
+            end = vertices[(i + 1) % len(vertices)]
+            interp_vertices.append(start)
+            u = end - start
+            d = np.linalg.norm(u)
+            unit_u = u / d
+            n_vert = int(d // step)
+            interp_vertices.extend([start + i * step * unit_u for i in range(1, n_vert + 1)])
+
+        vertices = np.array(interp_vertices)
         contours = vertices.reshape((-1, 1, 2)).astype(np.int32)
         eps = 1
+
 
         # rough approximation
         while True:
@@ -122,6 +138,7 @@ class ModelWrapper:
         # split original vertices in edges according to the rough approximation
         indices = [np.where((vertices == point).all(axis=1))[0][0] for point in approx]
         approx_groups = np.split(vertices, indices)
+        approx_groups = [approx_group for approx_group in approx_groups if len(approx_group) >= 15]
 
         # linear regression of the groups
         slopes = []
@@ -132,6 +149,7 @@ class ModelWrapper:
             slope, intercept = np.polyfit(x, y, 1)
             slopes.append(slope)
             intercepts.append(intercept)
+
 
         # extract new vertices by intersecting all lines
         # but excluding all intersections to far from the original point cloud
@@ -151,16 +169,16 @@ class ModelWrapper:
         intersects = np.array(intersects)
         distances = np.linalg.norm(intersects, axis=1)
         intersects = intersects[np.argsort(distances)]
-
         return intersects
 
     def segment_phone(self, image: np.ndarray) -> np.ndarray | None:
-        results = self.model_phone_segmentation(image, save=True)
+        results = self.model_phone_segmentation(image)
 
         if results[0].masks is None:
             return None
 
         polygon = np.array(results[0].masks.xy[0])
+
         # reduce mask to a quad and refine it
         vertices = self.approxMaskToPolygon(image, polygon)
 
@@ -243,24 +261,32 @@ class DigitRecognition:
         [0, 2]  #   0
     ])
 
+    images_edges = None
+
     def __init__(self, **kwargs):
         self.image = kwargs["img"]
-        self.bounds = kwargs.get("bounds", np.array([20, 20]))
+        self.bounds = kwargs.get("bounds", np.array([0.1, 0.9]))
         self.width_bounds = WIDTH * self.bounds
         self.height_bounds = HEIGHT * self.bounds
-        self.digit_alignment_delta = kwargs.get("digit_delta_alignment", [10, 10])
-        self.bbox_padding = kwargs.get("bbox_padding", 20)
+        self.digit_alignment_delta = kwargs.get("digit_delta_alignment", [20, 20])
+        self.bbox_padding = kwargs.get("bbox_padding", 30)
 
-    def extract_shape_contours(self, threshold=200):
+    def extract_shape_contours(self, threshold=128):
         self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        thresh, img = cv2.threshold(self.image, threshold, 255, cv2.THRESH_BINARY)
-        contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        self.images_edges = cv2.Canny(self.image, 200, 255)
+        contours, hierarchy = cv2.findContours(self.images_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = np.vstack(contours).squeeze()
+        plt.imshow(self.images_edges)
+        plt.scatter(contours[:, 0], contours[:, 1])
+        plt.show()
 
         # get individual contours
-        clusters = DBSCAN(eps=15, min_samples=10).fit(contours)
+        clusters = DBSCAN(eps=10, min_samples=20).fit(contours)
         clusters_xy = [[] for i in range(np.max(clusters.labels_) + 1)]
         for i, cluster_id in enumerate(clusters.labels_):
+            if cluster_id == -1:
+                continue
+
             clusters_xy[cluster_id].append(contours[i])
 
         return clusters_xy
@@ -276,36 +302,43 @@ class DigitRecognition:
             h = br[1] - tl[1]
             area = w * h
             barycenter = [tl[0] + w / 2, tl[1] + h / 2]
-
             if (area > 0.1 * (WIDTH * HEIGHT) or not
                     ((self.width_bounds[0] < barycenter[0] < self.width_bounds[1]) and
-                    (self.height_bounds[0] < barycenter[0] < self.height_bounds[1]))):
+                    (self.height_bounds[0] < barycenter[1] < self.height_bounds[1]))):
 
                 continue
 
             barycenters.append(barycenter)
 
-        return np.array(barycenters)
+        barycenters = np.array(barycenters)
+        return barycenters
 
     def extract_digit_matrix(self, barycenters):
+
         # 1-9 are aligned with two others ciphers vertically and horizontally in a pin-code
-        to_keep = []
-        for i, b in enumerate(barycenters):
-            near_x_count = 0
-            near_y_count = 0
-            for j, bb in enumerate(barycenters):
-                if b[0] == bb[0] and b[1] == bb[1]:
-                    continue
+        # iter two times to remove residuals barycenter => e.g. input dot or texts
+        for _ in range(2):
+            to_keep = []
+            for i, b in enumerate(barycenters):
+                near_x_count = 0
+                near_y_count = 0
+                for j, bb in enumerate(barycenters):
+                    if b[0] == bb[0] and b[1] == bb[1]:
+                        continue
 
-                if abs(b[0] - bb[0]) < self.digit_alignment_delta[0]:
-                    near_x_count += 1
-                if abs(b[1] - bb[1]) < self.digit_alignment_delta[1]:
-                    near_y_count += 1
+                    dx = abs(b[0] - bb[0])
+                    dy = abs(b[1] - bb[1])
+                    if dx < self.digit_alignment_delta[0]:
+                        near_x_count += 1
+                    if dy < self.digit_alignment_delta[1]:
+                        near_y_count += 1
 
-            if near_x_count >= 2 and near_y_count >= 2:
-                to_keep.append(i)
+                if near_x_count >= 2 and near_y_count >= 2:
+                    to_keep.append(i)
 
-        return barycenters[np.array(to_keep)]
+            barycenters = barycenters[np.array(to_keep)]
+
+        return barycenters
 
     def get_pin_bbox(self, barycenters):
         bbox_min = np.min(barycenters, axis=0)
@@ -328,9 +361,22 @@ class DigitRecognition:
         bboxes = [BoundingBox(
             adj_b[0] - self.bbox_padding,
             adj_b[1] - self.bbox_padding,
-            self.bbox_padding
+            self.bbox_padding * 2
         ) for adj_b in adj_barycenters]
 
+        plt.imshow(self.images_edges)
+        for i, box in enumerate(bboxes):
+            box = np.array([[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h], [box.x, box.y]])
+            plt.plot(box[:, 0], box[:, 1], c="#00ff00")
+        #     plt.text(box[0][0], box[0][1], f'{i}', fontsize=8, ha='right')
+
+        plt.scatter(adj_barycenters[:, 0], adj_barycenters[:, 1])
+        plt.scatter(adj_barycenters[4][0], adj_barycenters[4][1], c="#ff0000")
+        plt.plot([WIDTH * 0.1, HEIGHT * 0.1], [0, 640], c="#00ff00")
+        plt.plot([WIDTH * 0.9, HEIGHT * 0.9], [0, 640], c="#00ff00")
+        plt.plot([0, WIDTH], [HEIGHT * 0.1, 640 * 0.1], c="#00ff00")
+        plt.plot([0, WIDTH], [HEIGHT * 0.9, 640 * 0.9], c="#00ff00")
+        plt.show()
         # replace the bounding box for 0 at the beginning
         bboxes.insert(0, bboxes[-1])
         bboxes.pop(-1)
@@ -349,7 +395,7 @@ def add_bb_ref(request):
     image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
     image = cv2.resize(image, (WIDTH, HEIGHT))
 
-    # image = model_wrapper.segment_phone(image)
+    image = model_wrapper.segment_phone(image)
     if image is None:
         return HttpResponse(status=422)
 
