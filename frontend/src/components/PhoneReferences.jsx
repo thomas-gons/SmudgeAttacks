@@ -43,11 +43,15 @@ const focusedStyle = {
 };
 
 const acceptStyle = {
-  borderColor: '#00e676'
+  borderColor: '#00e676',
+  color: '#00e676',
+  transition: 'easy-out'
 };
 
 const rejectStyle = {
   borderColor: '#ff1744',
+  color: '#ff1744',
+  transition: 'ease-out'
 };
 
 const thumbsContainer = {
@@ -84,7 +88,7 @@ const img = {
 
 
 
-const PhoneReferences = () => {
+const PhoneReferences = ( {setResult} ) => {
   const [phoneReferences, setPhoneReferences] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isNewReference, setIsNewReference] = useState(false)
@@ -133,18 +137,21 @@ const PhoneReferences = () => {
     formData.append('ref', inputValue);
     formData.append('phone', file);
 
-    api.post("/api/phone-references/add", formData)
+    api.post("/api/phone-references/add", formData, {responseType: 'blob'})
       .then(response => {
         if (response.status === 201) {
           setPhoneReferences(prevReferences => [...prevReferences, {"ref": inputValue}]);
           displayStatus('Reference added successfully! ', 'success')
+          console.log(response)
+          const imageURL = URL.createObjectURL(response.data)
+          setResult(imageURL)
         }
       })
       // eslint-disable-next-line no-unused-vars
       .catch(err => {
         if (err.response && err.response.status === 422) {
-               console.log("The image \"" + file.name + "\" does not appear to contain a phone")
-               displayStatus("The image \"" + file.name + "\" does not appear to contain a phone", "error")
+          console.log("The image \"" + file.name + "\" does not appear to contain a phone")
+          displayStatus("The image \"" + file.name + "\" does not appear to contain a phone", "error")
         }
      });
   };

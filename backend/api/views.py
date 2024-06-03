@@ -35,6 +35,7 @@ import json
 import random
 import base64
 from typing import *
+from io import BytesIO
 
 import cv2
 from scipy.spatial import KDTree
@@ -117,12 +118,18 @@ class ModelWrapper:
             d = np.linalg.norm(u)
             unit_u = u / d
             n_vert = int(d // step)
-            interp_vertices.extend([start + i * step * unit_u for i in range(1, n_vert + 1)])
+            for j in range(1, n_vert + 1):
+                noise = np.random.normal(0, 0.25, size=start.shape)
+                noisy_interp_vert = start + j * step * unit_u + noise
+                interp_vertices.append(noisy_interp_vert)
 
-        vertices = np.array(interp_vertices)
-        contours = vertices.reshape((-1, 1, 2)).astype(np.int32)
+        interp_vertices = np.array(interp_vertices)
+        contours = interp_vertices.reshape((-1, 1, 2)).astype(np.int32)
         eps = 1
 
+        plt.imshow(img)
+        plt.scatter(interp_vertices[:, 0], interp_vertices[:, 1])
+        plt.show()
 
         # rough approximation
         while True:
@@ -136,11 +143,11 @@ class ModelWrapper:
         # Refining
 
         # split original vertices in edges according to the rough approximation
-        indices = [np.where((vertices == point).all(axis=1))[0][0] for point in approx]
-        approx_groups = np.split(vertices, indices)
+        indices = [np.where((interp_vertices == point).all(axis=1))[0][0] for point in approx]
+        approx_groups = np.split(interp_vertices, indices)
         approx_groups = [approx_group for approx_group in approx_groups if len(approx_group) >= 15]
 
-        # linear regression of the groups
+        plt.imshow(img)
         slopes = []
         intercepts = []
         for approx_group in approx_groups:
@@ -149,12 +156,13 @@ class ModelWrapper:
             slope, intercept = np.polyfit(x, y, 1)
             slopes.append(slope)
             intercepts.append(intercept)
-
+            # Plot the regression line
+            plt.scatter(x, y)
+            plt.plot(x, x * slope + intercept)
 
         # extract new vertices by intersecting all lines
         # but excluding all intersections to far from the original point cloud
-
-        kdtree = KDTree(vertices)
+        kdtree = KDTree(interp_vertices)
         intersects = []
         for i in range(len(approx_groups)):
             for j in range(i + 1, len(approx_groups)):
@@ -163,8 +171,10 @@ class ModelWrapper:
                 d, _ = kdtree.query(np.array([x_intersect, y_intersect]), k=1)
                 if d > 100:
                     continue
+                plt.scatter(x_intersect, y_intersect, c="blue")
                 intersects.append([x_intersect, y_intersect])
 
+        plt.show()
         # set the vertices into the following order: top left, top right, bottom right, bottom left
         intersects = np.array(intersects)
         distances = np.linalg.norm(intersects, axis=1)
@@ -239,10 +249,11 @@ def guess_number(boxes: List[BoundingBox], reference: str) -> List[int]:
         if max_iou > 0.8:
             pin.append(boxes.index(box))
 
+    # TODO: handle less or more than six ciphers retrieved
     return pin
 
 
-def guess_order(pin: List[int], ref: str) -> List[List[int]]:
+def guess_order(pin: List[int]) -> List[List[int]]:
     order = []
     for i in range(10):
         if i in pin:
@@ -256,12 +267,13 @@ def guess_order(pin: List[int], ref: str) -> List[List[int]]:
 class DigitRecognition:
     pin_layout = np.array([
         [-1, -1], [0, -1], [1, -1],  # 1 2 3
-        [-1, 0], [0, 0], [1, 0],  # 4 5 6
-        [-1, 1], [0, 1], [1, 1],  # 7 8 9
-        [0, 2]  #   0
+        [-1, 0], [0, 0], [1, 0],     # 4 5 6
+        [-1, 1], [0, 1], [1, 1],     # 7 8 9
+        [0, 2]                       #   0
     ])
 
     images_edges = None
+    result = None
 
     def __init__(self, **kwargs):
         self.image = kwargs["img"]
@@ -276,6 +288,10 @@ class DigitRecognition:
         self.images_edges = cv2.Canny(self.image, 200, 255)
         contours, hierarchy = cv2.findContours(self.images_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = np.vstack(contours).squeeze()
+
+        plt.imshow(self.images_edges)
+        plt.show()
+
         plt.imshow(self.images_edges)
         plt.scatter(contours[:, 0], contours[:, 1])
         plt.show()
@@ -364,19 +380,26 @@ class DigitRecognition:
             self.bbox_padding * 2
         ) for adj_b in adj_barycenters]
 
-        plt.imshow(self.images_edges)
+        fig, ax = plt.subplots()
+        ax.imshow(self.image)
         for i, box in enumerate(bboxes):
-            box = np.array([[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h], [box.x, box.y]])
-            plt.plot(box[:, 0], box[:, 1], c="#00ff00")
-        #     plt.text(box[0][0], box[0][1], f'{i}', fontsize=8, ha='right')
+            box = np.array(
+                [[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h],
+                 [box.x, box.y]])
+            ax.plot(box[:, 0], box[:, 1], c="#00ff00")
+        # ax.scatter(adj_barycenters[:, 0], adj_barycenters[:, 1])
+        # ax.scatter(adj_barycenters[4][0], adj_barycenters[4][1], c="#ff0000")
+        # ax.plot([WIDTH * 0.1, HEIGHT * 0.1], [0, 640], c="#00ff00")
+        # ax.plot([WIDTH * 0.9, HEIGHT * 0.9], [0, 640], c="#00ff00")
+        # ax.plot([0, WIDTH], [HEIGHT * 0.1, 640 * 0.1], c="#00ff00")
+        # ax.plot([0, WIDTH], [HEIGHT * 0.9, 640 * 0.9], c="#00ff00")
+        ax.axis('off')
 
-        plt.scatter(adj_barycenters[:, 0], adj_barycenters[:, 1])
-        plt.scatter(adj_barycenters[4][0], adj_barycenters[4][1], c="#ff0000")
-        plt.plot([WIDTH * 0.1, HEIGHT * 0.1], [0, 640], c="#00ff00")
-        plt.plot([WIDTH * 0.9, HEIGHT * 0.9], [0, 640], c="#00ff00")
-        plt.plot([0, WIDTH], [HEIGHT * 0.1, 640 * 0.1], c="#00ff00")
-        plt.plot([0, WIDTH], [HEIGHT * 0.9, 640 * 0.9], c="#00ff00")
-        plt.show()
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+        buffer.seek(0)
+        DigitRecognition.result = buffer
         # replace the bounding box for 0 at the beginning
         bboxes.insert(0, bboxes[-1])
         bboxes.pop(-1)
@@ -401,10 +424,10 @@ def add_bb_ref(request):
 
     bboxes = DigitRecognition(img=image).process_data()
 
-    ref_m = ReferenceModel.objects.create(ref=request.POST.get('ref'))
-    ref_m.save()
-    for i, bb in enumerate(bboxes):
-        bb_m = BoundingBoxModel(x=bb.x, y=bb.y, w=bb.w, h=bb.h, cipher=i, ref=ref_m)
-        bb_m.save()
+    # ref_m = ReferenceModel.objects.create(ref=request.POST.get('ref'))
+    # ref_m.save()
+    # for i, bb in enumerate(bboxes):
+    #     bb_m = BoundingBoxModel(x=bb.x, y=bb.y, w=bb.w, h=bb.h, cipher=i, ref=ref_m)
+    #     bb_m.save()
 
-    return HttpResponse('', status=201)
+    return HttpResponse(DigitRecognition.result, content_type='image/png', status=201)

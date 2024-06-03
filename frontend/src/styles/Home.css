@@ -3,11 +3,23 @@ body {
   padding: 0px;
 }
 
-#left {
+#main {
   margin-top: 30px;
   margin-left: 30px;
+  height: 90vh;
+  display: flex;
+  justify-content: space-between;
+}
+
+#left {
+  width: 40%;
+}
+
+#right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 50%;
-  height: 82.5vh;
 }
 
 /* Container for the whole page */
