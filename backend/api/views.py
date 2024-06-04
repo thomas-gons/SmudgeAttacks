@@ -1,11 +1,26 @@
 import matplotlib.pyplot as plt
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import HttpResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
 from .serializers import UserSerializer, ReferenceSerializer, BoundingBoxSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import ReferenceModel, BoundingBoxModel
+
+import json
+import random
+import base64
+from typing import *
+from io import BytesIO
+from itertools import permutations
+from collections import defaultdict
+from functools import reduce
+
+import cv2
+from scipy.spatial import KDTree
+from sklearn.cluster import DBSCAN
+import numpy as np
+from ultralytics import YOLO
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -30,21 +45,6 @@ class BoundingBoxDelete(generics.DestroyAPIView):
         reference = self.request.data['ref']
         return BoundingBoxModel.objects.filter(ref=reference)
 
-
-import json
-import random
-import base64
-from typing import *
-from io import BytesIO
-from itertools import product
-from collections import defaultdict
-from functools import reduce
-
-import cv2
-from scipy.spatial import KDTree
-from sklearn.cluster import DBSCAN
-import numpy as np
-from ultralytics import YOLO
 
 WIDTH = 640
 HEIGHT = 640
@@ -102,12 +102,38 @@ class BoundingBox:
         return inter_area / union_area
 
 
+def export_plotted_bbox_on_image(img: np.ndarray, bboxes: List[BoundingBox]) -> BytesIO:
+    fig, ax = plt.subplots()
+    ax.imshow(img)
+    for i, box in enumerate(bboxes):
+        box = np.array(
+            [[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h],
+             [box.x, box.y]])
+        ax.plot(box[:, 0], box[:, 1], c="#00ff00")
+
+    ax.axis('off')
+
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
+
 class DigitRecognition:
+    """
+        1  2  3
+        4  5  6
+        7  8  9
+           0
+
+    Below cipher coordinates from the center aka 5
+    """
     pin_layout = np.array([
-        [-1, -1], [0, -1], [1, -1],  # 1 2 3
-        [-1, 0], [0, 0], [1, 0],  # 4 5 6
-        [-1, 1], [0, 1], [1, 1],  # 7 8 9
-        [0, 2]  #   0
+        [-1, -1], [0, -1], [1, -1],
+        [-1, 0], [0, 0], [1, 0],
+        [-1, 1], [0, 1], [1, 1],
+        [0, 2]
     ])
 
     images_edges = None
@@ -124,7 +150,7 @@ class DigitRecognition:
     def extract_shape_contours(self, threshold=128):
         self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         self.images_edges = cv2.Canny(self.image, 200, 255)
-        contours, hierarchy = cv2.findContours(self.images_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(self.images_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = np.vstack(contours).squeeze()
 
         plt.imshow(self.images_edges)
@@ -136,12 +162,12 @@ class DigitRecognition:
 
         # get individual contours
         clusters = DBSCAN(eps=10, min_samples=20).fit(contours)
-        clusters_xy = [[] for i in range(np.max(clusters.labels_) + 1)]
+        clusters_xy = [[] for _ in range(np.max(clusters.labels_) + 1)]
         for i, cluster_id in enumerate(clusters.labels_):
             if cluster_id == -1:
                 continue
 
-            clusters_xy[cluster_id].append(contours[i])
+            clusters_xy[cluster_id].append(list(contours[i]))
 
         return clusters_xy
 
@@ -149,6 +175,7 @@ class DigitRecognition:
         # get the barycenters of all clusters that aren't too near to edges or too large
         barycenters = []
         for cluster in clusters:
+            cluster = np.array(cluster)
             # get the bounding box
             tl = np.min(cluster, axis=0)
             br = np.max(cluster, axis=0)
@@ -156,9 +183,10 @@ class DigitRecognition:
             h = br[1] - tl[1]
             area = w * h
             barycenter = [tl[0] + w / 2, tl[1] + h / 2]
+
             if (area > 0.1 * (WIDTH * HEIGHT) or not
-            ((self.width_bounds[0] < barycenter[0] < self.width_bounds[1]) and
-             (self.height_bounds[0] < barycenter[1] < self.height_bounds[1]))):
+                ((self.width_bounds[0] < barycenter[0] < self.width_bounds[1]) and
+                    (self.height_bounds[0] < barycenter[1] < self.height_bounds[1]))):
                 continue
 
             barycenters.append(barycenter)
@@ -217,26 +245,7 @@ class DigitRecognition:
             self.bbox_padding * 2
         ) for adj_b in adj_barycenters]
 
-        fig, ax = plt.subplots()
-        ax.imshow(self.image)
-        for i, box in enumerate(bboxes):
-            box = np.array(
-                [[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h],
-                 [box.x, box.y]])
-            ax.plot(box[:, 0], box[:, 1], c="#00ff00")
-        # ax.scatter(adj_barycenters[:, 0], adj_barycenters[:, 1])
-        # ax.scatter(adj_barycenters[4][0], adj_barycenters[4][1], c="#ff0000")
-        # ax.plot([WIDTH * 0.1, HEIGHT * 0.1], [0, 640], c="#00ff00")
-        # ax.plot([WIDTH * 0.9, HEIGHT * 0.9], [0, 640], c="#00ff00")
-        # ax.plot([0, WIDTH], [HEIGHT * 0.1, 640 * 0.1], c="#00ff00")
-        # ax.plot([0, WIDTH], [HEIGHT * 0.9, 640 * 0.9], c="#00ff00")
-        ax.axis('off')
-
-        buffer = BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0)
-        plt.close(fig)
-        buffer.seek(0)
-        DigitRecognition.result = buffer
+        DigitRecognition.result = export_plotted_bbox_on_image(self.image, bboxes)
         # replace the bounding box for 0 at the beginning
         bboxes.insert(0, bboxes[-1])
         bboxes.pop(-1)
@@ -255,7 +264,7 @@ class ModelWrapper:
         self.model_smudge_detection = YOLO('assets/weights/yolov8-det-phone.pt')
 
     @staticmethod
-    def approxMaskToPolygon(img, vertices, ) -> np.ndarray:
+    def approx_mask_to_polygon(img, vertices, ) -> np.ndarray:
 
         # resampling to add more points between far consecutive point
         step = 30
@@ -293,7 +302,7 @@ class ModelWrapper:
         # Refining
 
         # split original vertices in edges according to the rough approximation
-        indices = [np.where((interp_vertices == point).all(axis=1))[0][0] for point in approx]
+        indices = [np.where(np.array((interp_vertices == point)).all(axis=1))[0][0] for point in approx]
         approx_groups = np.split(interp_vertices, indices)
         approx_groups = [approx_group for approx_group in approx_groups if len(approx_group) >= 15]
 
@@ -340,7 +349,7 @@ class ModelWrapper:
         polygon = np.array(results[0].masks.xy[0])
 
         # reduce mask to a quad and refine it
-        vertices = self.approxMaskToPolygon(image, polygon)
+        vertices = self.approx_mask_to_polygon(image, polygon)
 
         # deform the original image with this quad
         dst_points = np.array([[0, 0], [WIDTH, 0], [0, WIDTH], [WIDTH, HEIGHT]], dtype=np.float32)
@@ -354,15 +363,19 @@ class ModelWrapper:
         return [BoundingBox(box) for box in boxes]
 
 
+def preprocess_image(img, w=WIDTH, h=HEIGHT) -> np.ndarray:
+    img = cv2.imdecode(np.frombuffer(img.read(), np.uint8), cv2.IMREAD_COLOR)
+    img = cv2.resize(img, (w, h))
+    return img
+
+
 model_wrapper = ModelWrapper()
 
 
 @csrf_exempt
 def detect_phone(request):
     ref = request.POST.get('ref')
-    image = request.FILES.get("image")
-    image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
-    image = cv2.resize(image, (WIDTH, HEIGHT))
+    image = preprocess_image(request.FILES.get("image"))
 
     dst = model_wrapper.segment_phone(image)
     if dst is None:
@@ -375,17 +388,14 @@ def detect_phone(request):
     boxes = model_wrapper.detect_smudge(dst_brightened)
     ciphers = guess_ciphers(boxes, ref)
 
-    most_likely_pincode = guess_order(ciphers)
+    most_likely_pincodes = guess_order(ciphers)
 
-    _, encoded_image = cv2.imencode('.jpg', dst)
-    encode_image_data = encoded_image.tobytes()
-    base64_image_data = base64.b64encode(encode_image_data).decode('utf-8')
+    blob = export_plotted_bbox_on_image(dst, boxes)
+    base64_image_data = base64.b64encode(blob.getvalue()).decode('utf-8')
 
     response = {
         'image': base64_image_data,
-        'boxes': boxes,
-        'ciphers': ciphers,
-        'mostLikelyPINcode': most_likely_pincode
+        'mostLikelyPINcode': most_likely_pincodes
     }
     return HttpResponse(json.dumps(response), content_type="application/json")
 
@@ -400,6 +410,8 @@ def guess_ciphers(boxes: List[BoundingBox], reference: str) -> List[int]:
             pin.append(boxes.index(box))
 
     # TODO: handle less or more than six ciphers retrieved
+    # --> if less use markov chain to guess more probable missing ciphers
+    # --> if more then compute order for all sequence of 6 ciphers keep cipher with IOU > 0.9 in place
     return pin
 
 
@@ -409,50 +421,37 @@ freq = np.load("assets/frequenciesDump", allow_pickle=True)
 
 
 def guess_order(ciphers: List[int]) -> List[str]:
-
-    all_pins_sep = list(product(ciphers, repeat=6))
+    all_pins_sep = list(permutations(ciphers))
     all_pins = np.array([reduce(lambda x, y: 10 * x + y, pin) for pin in all_pins_sep])
     all_pins_sep = np.array(all_pins_sep)
-    n_criteria = 3
-    slice_index = 200
+    n_permutations = len(all_pins)
 
     prob_acc_index = np.prod(prob_by_index[all_pins_sep, np.arange(all_pins_sep.shape[1])], axis=1)
-    best_pins_acc_index = np.argsort(prob_acc_index)[::-1][:slice_index]
+    sorted_pins_acc_index = np.argsort(prob_acc_index)[::-1]
 
     prob_acc_markov = np.prod(transition_mat[all_pins_sep[:, :-1], all_pins_sep[:, 1:]], axis=1)
-    best_pins_acc_markov = np.argsort(prob_acc_markov)[::-1][:slice_index]
+    sorted_pins_acc_markov = np.argsort(prob_acc_markov)[::-1]
 
     prob_acc_freq = freq[all_pins]
-    best_pins_acc_freq = np.argsort(prob_acc_freq)[::-1][:slice_index]
+    sorted_pins_acc_freq = np.argsort(prob_acc_freq)[::-1]
 
     weights = defaultdict(int)
-    occurrences = defaultdict(int)
 
-    for i in range(slice_index):
-        ith_pin_acc_index = all_pins[best_pins_acc_index[i]]
-        ith_pin_acc_markov = all_pins[best_pins_acc_markov[i]]
-        ith_pin_acc_freq = all_pins[best_pins_acc_freq[i]]
+    for i in range(n_permutations):
+        ith_pin_acc_index = all_pins[sorted_pins_acc_index[i]]
+        ith_pin_acc_markov = all_pins[sorted_pins_acc_markov[i]]
+        ith_pin_acc_freq = all_pins[sorted_pins_acc_freq[i]]
 
         weights[ith_pin_acc_index] += i
         weights[ith_pin_acc_markov] += i
         weights[ith_pin_acc_freq] += i
 
-        occurrences[ith_pin_acc_index] += 1
-        occurrences[ith_pin_acc_markov] += 1
-        occurrences[ith_pin_acc_freq] += 1
-
-    # apply a penalty to pincode not selected by all criteria
-    for k in weights.keys():
-        weights[k] += (n_criteria - occurrences[k]) * slice_index
-
-    return [k for k, v in sorted(weights.items(), key=lambda item: item[1])[:20]]
+    return [k for k, v in sorted(weights.items(), key=lambda item: item[1])[:min(20, n_permutations)]]
 
 
 @csrf_exempt
 def add_bb_ref(request):
-    image = request.FILES['phone']
-    image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
-    image = cv2.resize(image, (WIDTH, HEIGHT))
+    image = preprocess_image(request.FILES['phone'])
 
     image = model_wrapper.segment_phone(image)
     if image is None:
