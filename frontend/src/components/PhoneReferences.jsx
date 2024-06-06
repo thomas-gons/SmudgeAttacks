@@ -253,9 +253,9 @@ const PhoneReferences = ( {setResult} ) => {
        return;
      }
 
-     const formData = new FormData()
-     formData.append("ref", inputValue)
      files.map(file => {
+       const formData = new FormData()
+       formData.append("ref", inputValue)
        formData.append('image', file)
 
        api.post("api/find-pin-code", formData)

@@ -1,3 +1,5 @@
+import os.path
+
 import matplotlib.pyplot as plt
 from django.shortcuts import HttpResponse
 from django.contrib.auth.models import User
@@ -260,14 +262,14 @@ class DigitRecognition:
 
 class ModelWrapper:
     def __init__(self):
-        self.model_phone_segmentation = YOLO('assets/weights/yolov8-segx-2-phone.pt')
+        self.model_phone_segmentation = YOLO('assets/weights/yolov8-segm-phone.pt')
         self.model_smudge_detection = YOLO('assets/weights/yolov8-det-phone.pt')
 
     @staticmethod
     def approx_mask_to_polygon(img, vertices, ) -> np.ndarray:
 
         # resampling to add more points between far consecutive point
-        step = 30
+        step = 15
         interp_vertices = []
         for i in range(len(vertices)):
             start = vertices[i]
@@ -286,10 +288,6 @@ class ModelWrapper:
         contours = interp_vertices.reshape((-1, 1, 2)).astype(np.int32)
         eps = 1
 
-        plt.imshow(img)
-        plt.scatter(interp_vertices[:, 0], interp_vertices[:, 1])
-        plt.show()
-
         # rough approximation
         while True:
             approx = cv2.approxPolyDP(contours, eps, True)
@@ -300,11 +298,11 @@ class ModelWrapper:
             eps += 0.5
 
         # Refining
-
         # split original vertices in edges according to the rough approximation
         indices = [np.where(np.array((interp_vertices == point)).all(axis=1))[0][0] for point in approx]
         approx_groups = np.split(interp_vertices, indices)
-        approx_groups = [approx_group for approx_group in approx_groups if len(approx_group) >= 15]
+        # merge the first group with the last
+        approx_groups = [np.concatenate((approx_groups[0], approx_groups[-1]))] + approx_groups[1:-1]
 
         plt.imshow(img)
         slopes = []
@@ -312,15 +310,25 @@ class ModelWrapper:
         for approx_group in approx_groups:
             x = approx_group[:, 0]
             y = approx_group[:, 1]
-            slope, intercept = np.polyfit(x, y, 1)
+            if np.var(x) > np.var(y):
+                slope, intercept = np.polyfit(x, y, 1)
+
+            else:
+                slope_temp, intercept_temp = np.polyfit(y, x, 1)
+                slope = 1 / slope_temp
+                intercept = -intercept_temp / slope_temp
+
             slopes.append(slope)
             intercepts.append(intercept)
             # Plot the regression line
-            plt.scatter(x, y)
             plt.plot(x, x * slope + intercept)
 
+        plt.xlim(0, 800)
+        plt.ylim(0, 800)
+        plt.show()
         # extract new vertices by intersecting all lines
         # but excluding all intersections to far from the original point cloud
+        plt.imshow(img)
         kdtree = KDTree(interp_vertices)
         intersects = []
         for i in range(len(approx_groups)):
@@ -341,7 +349,7 @@ class ModelWrapper:
         return intersects
 
     def segment_phone(self, image: np.ndarray) -> np.ndarray | None:
-        results = self.model_phone_segmentation(image)
+        results = self.model_phone_segmentation(image, save=True)
 
         if results[0].masks is None:
             return None
@@ -375,11 +383,22 @@ model_wrapper = ModelWrapper()
 @csrf_exempt
 def detect_phone(request):
     ref = request.POST.get('ref')
-    image = preprocess_image(request.FILES.get("image"))
+    image = request.FILES.get("image")
+    filename = image.name
+    if os.path.exists('assets/images/' + filename):
+        return HttpResponse()
+
+    print("Process image: " + filename)
+    image = preprocess_image(image)
 
     dst = model_wrapper.segment_phone(image)
     if dst is None:
         return HttpResponse(status=422)
+
+    plt.imshow(dst)
+    plt.show()
+    cv2.imwrite("assets/images/" + filename, dst)
+    return HttpResponse()
 
     # increase brightness
     brightness_matrix = np.ones(dst.shape, dtype='uint8') * 150
@@ -415,9 +434,9 @@ def guess_ciphers(boxes: List[BoundingBox], reference: str) -> List[int]:
     return pin
 
 
-transition_mat = np.load("assets/markovChainTransitionMatDump", allow_pickle=True)
-prob_by_index = np.load("assets/probByIndexDump", allow_pickle=True)
-freq = np.load("assets/frequenciesDump", allow_pickle=True)
+transition_mat = np.load("assets/stats/six_symbols/markovChainTransitionMatDump", allow_pickle=True)
+prob_by_index = np.load("assets/stats/six_symbols/probByIndexDump", allow_pickle=True)
+freq = np.load("assets/stats/six_symbols/frequenciesDump", allow_pickle=True)
 
 
 def guess_order(ciphers: List[int]) -> List[str]:

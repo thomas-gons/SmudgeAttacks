@@ -1,6 +1,10 @@
 .idea
-backend/venv
-backend/.idea
+backend/venv/
+backend/.idea/
+backend/assets/images/
+backend/backend/__pycache__/
+backend/api/__pycache__/
+backend/api/migrations/__pycache/
 
 frontend/.idea
 frontend/node_modules
