@@ -142,7 +142,6 @@ const PhoneReferences = ( {setResult} ) => {
         if (response.status === 201) {
           setPhoneReferences(prevReferences => [...prevReferences, {"ref": inputValue}]);
           displayStatus('Reference added successfully! ', 'success')
-          console.log(response)
           const imageURL = URL.createObjectURL(response.data)
           setResult(imageURL)
         }
@@ -258,11 +257,16 @@ const PhoneReferences = ( {setResult} ) => {
        formData.append("ref", inputValue)
        formData.append('image', file)
 
-       api.post("api/find-pin-code", formData)
+       api.post("api/find-pin-code", formData, {responseType: 'blob'})
            .then(response => {
-
+            if (response.status === 201) {
+              console.log(response.data)
+              const imageURL = URL.createObjectURL(response.data)
+              setResult(imageURL)
+            }
            })
            .catch((err) => {
+             console.log(err)
              if (err.response && err.response.status === 422) {
                console.log("The image \"" + file.name + "\" does not appear to contain a phone")
                displayStatus("The image \"" + file.name + "\" does not appear to contain a phone", "error")

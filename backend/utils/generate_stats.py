@@ -40,13 +40,17 @@ class StatsBuilder:
         return prob_by_index
 
     def __compute_markov_chain_transitions(self) -> np.ndarray:
-        markov_chaine_transition = np.zeros((10, 10))
+        markov_chain_transition = np.zeros((10, 10))
+        # Parcours des séquences de pins et de leurs occurrences
         for pin, occ in tqdm(self.all_pins_dict.items(), desc="Markov chain transition computation: "):
             for i in range(self.pin_len - 1):
-                markov_chaine_transition[int(pin[i]), int(pin[i + 1])] += occ
+                # Mise à jour de la matrice de transition
+                markov_chain_transition[int(pin[i]), int(pin[i + 1])] += occ
 
-        markov_chaine_transition /= self.sample_size
-        return markov_chaine_transition
+        # Division des occurrences pour obtenir des probabilités
+        row_sums = markov_chain_transition.sum(axis=1, keepdims=True)
+        np.divide(markov_chain_transition, row_sums, out=markov_chain_transition, where=row_sums != 0)
+        return markov_chain_transition
 
     def save_stats(self):
         path = f'../assets/stats/{p.number_to_words(self.pin_len)}_symbols/'
@@ -56,5 +60,5 @@ class StatsBuilder:
         self.__compute_markov_chain_transitions().dump(path + "markovChainTransitionMatDump")
 
 
-sb = StatsBuilder('/path/to/pincode/database')
+sb = StatsBuilder('/home/thomas/PycharmProjects/test/RockYou-6-digit.txt')
 sb.save_stats()

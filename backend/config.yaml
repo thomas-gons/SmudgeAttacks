@@ -1,0 +1,31 @@
+---
+
+width: 640
+height: 640
+
+pin_length: 6
+
+ModelWrapper:
+  phone_seg_weights: 'assets/weights/yolov8-segx-2-phone.pt'
+  smudges_det_weights: 'assets/weights/yolov8-detx-2-smudges.pt'
+
+  interp_step: 15                   # interpolation of segmented line
+
+
+DigitRecognition:
+  canny_thresholds: [200, 255]      # [lower, upper] thresholds for Canny edge detection
+  cluster_eps: 10                   # DBSCAN clustering epsilon
+  cluster_min_samples: 20           # DBSCAN clustering min_samples
+  bounds: [0.1, 0.9]                # [lower, upper] inner bounds for digit recognition
+  digit_alignment_delta: [20, 20]   # [x, y] in pixels for matrix digits alignment
+  bbox_padding: [50, 35]            # [w, h] bbox padding in pixels (applied to all sides)
+
+CipherGuessing:
+  min_iou: 0.3                      # minimum IOU for cipher guessing
+
+
+OrderGuessing:
+  transition_matrix: 'assets/stats/###_symbols/markovChainTransitionMatDump'
+  prob_by_index: 'assets/stats/###_symbols/probByIndexDump'
+  frequencies: 'assets/stats/###_symbols/frequenciesDump'
+
