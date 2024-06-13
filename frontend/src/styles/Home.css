@@ -104,3 +104,14 @@ form input[type="submit"]:hover {
   height: 45px;
   margin-left:20px;
 }
+
+#result {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 400px;
+}
+
+#pinCode {
+  margin-top: 20px;
+}

@@ -88,7 +88,7 @@ const img = {
 
 
 
-const PhoneReferences = ( {setResult} ) => {
+const PhoneReferences = ( {setResult, setPinCodes }) => {
   const [phoneReferences, setPhoneReferences] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isNewReference, setIsNewReference] = useState(false)
@@ -257,12 +257,11 @@ const PhoneReferences = ( {setResult} ) => {
        formData.append("ref", inputValue)
        formData.append('image', file)
 
-       api.post("api/find-pin-code", formData, {responseType: 'blob'})
+       api.post("api/find-pin-code", formData)
            .then(response => {
             if (response.status === 201) {
-              console.log(response.data)
-              const imageURL = URL.createObjectURL(response.data)
-              setResult(imageURL)
+              setResult(response.data['image'])
+              setPinCodes(response.data['pincodes'])
             }
            })
            .catch((err) => {
