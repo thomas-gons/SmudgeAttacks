@@ -7,12 +7,16 @@ from views import config
 
 
 class BoundingBox:
+    """
+    Abstraction of a bounding box that helps to handle and save detection model result
+    @see ModelWrapper
+    """
     x: int
     y: int
     w: int
     h: int
 
-    def __init__(self, *args: Tuple[int, int, int, int] | Tuple[int, int, int] | int) -> None:
+    def __init__(self, *args: Tuple[int, int, int, int] | int) -> None:
         if len(args) == 1:
             self.x, self.y, self.w, self.h = args[0]
 

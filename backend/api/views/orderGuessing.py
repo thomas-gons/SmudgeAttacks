@@ -6,9 +6,10 @@ from collections import defaultdict
 
 import numpy as np
 
-
 from views import config
 
+
+# get the literal cipher of the PIN length
 p = inflect.engine()
 pin_length_lit = p.number_to_words(config['pin_length'])
 for k, v in config["OrderGuessing"].items():
@@ -21,8 +22,21 @@ freq = np.load(config["OrderGuessing"]["frequencies"], allow_pickle=True)
 
 
 def guess_order(ciphers: List[Tuple[int, float]]) -> List[str]:
+    """
+    Use probabilities computed from a large sample of PIN code defined by:
+        -> a Markov chain's transition matrix (order=1)
+        -> a matrix that gives the probabilities of each cipher to be at each index
+            in the sequence
+        -> a simple frequency array
+
+    As these methods doesn't provide equivalent distribution we cannot compute a mean
+    probability directly. Thus, we sum all the ranks of the permutations according to
+    the previous methods and then take the nth first more probable sequence
+    """
+
     if len(ciphers) != config['pin_length']:
         return []
+
     all_pins_sep = list(permutations(np.array(ciphers)[:, 0].astype(int)))
     all_pins = np.array([reduce(lambda x, y: 10 * x + y, pin) for pin in all_pins_sep])
     all_pins_sep = np.array(all_pins_sep)
@@ -48,6 +62,10 @@ def guess_order(ciphers: List[Tuple[int, float]]) -> List[str]:
         weights[ith_pin_acc_markov] += i
         weights[ith_pin_acc_freq] += i
 
-    more_probable_pins = [k for k, v in sorted(weights.items(), key=lambda item: item[1])[: min(20, n_permutations)]]
+    sorted_weights = sorted(weights.items(), key=lambda item: item[1])
+    nth_best_weights = sorted_weights[: min(config['OrderGuessing']['n_more_probable_pins'], n_permutations)]
+    more_probable_pins = [k for k, v in nth_best_weights]
+
+    # as we use numbers, we have to add insignificant zeros
     more_probable_pins = [str(pin).zfill(config['pin_length']) for pin in more_probable_pins]
     return more_probable_pins

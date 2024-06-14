@@ -11,6 +11,9 @@ from boundingBox import BoundingBox
 
 
 class PyplotWrapper:
+    """
+    Simple wrapper to avoid redundant pyplot operations
+    """
     ax: Axes
     fig: Figure
 
