@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from boundingBox import BoundingBox
+from api.views.boundingBox import BoundingBox
 
 
 class PyplotWrapper:
@@ -28,7 +28,7 @@ class PyplotWrapper:
         is_labels = (len(labels) == len(bboxes))
 
         for i, bbox in enumerate(bboxes):
-            plot_box = bbox.all_corners()
+            plot_box = bbox.pyplot_formatting()
             self.ax.plot(plot_box[:, 0], plot_box[:, 1], color=c)
 
             if not is_labels and self.is_subplot:
@@ -49,7 +49,7 @@ class PyplotWrapper:
     ) -> None:
 
         self.ax.imshow(image)
-        self.plot_bounding_boxes(refs_bboxes, labels, c="green")
+        self.plot_bounding_boxes(refs_bboxes, labels, c="#00ff00")
 
     def plot_result(
             self,
@@ -60,7 +60,7 @@ class PyplotWrapper:
     ) -> None:
 
         self.ax.imshow(image)
-        self.plot_bounding_boxes(refs_bboxes, labels, c="green")
+        self.plot_bounding_boxes(refs_bboxes, labels, c="#00ff00")
         self.plot_bounding_boxes(bboxes, c="red")
 
     def export_as_blob(self) -> BytesIO:

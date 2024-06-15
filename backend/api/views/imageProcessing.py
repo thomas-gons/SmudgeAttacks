@@ -1,13 +1,9 @@
-from typing import TYPE_CHECKING
+from django.core.files.uploadedfile import TemporaryUploadedFile
 
 import numpy as np
 import cv2
 
-from views import config
-
-
-if TYPE_CHECKING:
-    from django.core.files.uploadedfile import TemporaryUploadedFile
+from api.config import config
 
 
 def preprocess_image(img: TemporaryUploadedFile, w: int = config["width"], h: int = config["height"]) -> np.ndarray:

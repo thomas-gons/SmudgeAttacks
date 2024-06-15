@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from api.views import views
 
 urlpatterns = [
     path("phone-references/get", views.GetPhoneReferencesView.as_view(), name="get-phone-references"),

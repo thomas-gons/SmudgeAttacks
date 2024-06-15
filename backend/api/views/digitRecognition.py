@@ -4,12 +4,12 @@ from typing import *
 import cv2
 import numpy as np
 from sklearn.cluster import DBSCAN
-from backend.api.models import ReferenceModel, BoundingBoxModel
+from api.models import ReferenceModel, BoundingBoxModel
 
 
-from views import config
-from boundingBox import BoundingBox
-from pyplotWrapper import PyplotWrapper
+from api.config import config
+from api.views.boundingBox import BoundingBox
+from api.views.pyplotWrapper import PyplotWrapper
 
 
 class DigitRecognition:

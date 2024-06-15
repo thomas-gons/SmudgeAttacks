@@ -5,8 +5,8 @@ from ultralytics import YOLO
 import numpy as np
 import cv2
 
-from views import config
-from boundingBox import BoundingBox
+from api.config import config
+from api.views.boundingBox import BoundingBox
 
 
 class ModelWrapper:

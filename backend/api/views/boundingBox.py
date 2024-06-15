@@ -3,7 +3,7 @@ from typing import *
 
 import numpy as np
 
-from views import config
+from api.config import config
 
 
 class BoundingBox:
@@ -48,13 +48,14 @@ class BoundingBox:
         # top left and bottom right corners of the bounding box
         return [self.x, self.y, self.x + self.w, self.y + self.h]
 
-    def all_corners(self) -> np.ndarray:
-        # top left, top right, bottom left, bottom right
+    def pyplot_formatting(self) -> np.ndarray:
+        # top left, top right, bottom right, bottom_left
         return np.array([
             [self.x, self.y],
             [self.x + self.w, self.y],
+            [self.x + self.w, self.y + self.h],
             [self.x, self.y + self.h],
-            [self.x + self.w, self.y + self.h]
+            [self.x, self.y]
         ], dtype=np.float32)
 
     def get_center(self) -> np.ndarray:

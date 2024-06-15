@@ -6,7 +6,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from views import config
+from api.config import config
 
 
 # get the literal cipher of the PIN length
@@ -63,8 +63,8 @@ def guess_order(ciphers: List[Tuple[int, float]]) -> List[str]:
         weights[ith_pin_acc_freq] += i
 
     sorted_weights = sorted(weights.items(), key=lambda item: item[1])
-    nth_best_weights = sorted_weights[: min(config['OrderGuessing']['n_more_probable_pins'], n_permutations)]
-    more_probable_pins = [k for k, v in nth_best_weights]
+    nth_best_weights = sorted_weights[: min(config['n_more_probable_pins'], n_permutations)]
+    more_probable_pins = [pin_code for pin_code, rank in nth_best_weights]
 
     # as we use numbers, we have to add insignificant zeros
     more_probable_pins = [str(pin).zfill(config['pin_length']) for pin in more_probable_pins]

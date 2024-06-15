@@ -4,6 +4,8 @@ width: 640
 height: 640
 
 pin_length: 6
+n_more_probable_pins: 20
+
 
 ModelWrapper:
   phone_seg_weights: 'assets/weights/yolov8-segm-phone.pt'
@@ -30,5 +32,4 @@ OrderGuessing:
   prob_by_index: 'assets/stats/###_symbols/probByIndexDump'
   frequencies: 'assets/stats/###_symbols/frequenciesDump'
 
-  n_more_probable_pins: 20
 ...
