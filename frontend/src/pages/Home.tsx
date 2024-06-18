@@ -3,7 +3,8 @@ import PhoneReferences from "../components/PhoneReferences";
 import ResultComponent from "../components/Result.jsx"
 import Navbar from "../components/Navbar.jsx"
 import {useState} from "react";
-import {SnackbarProvider} from "notistack";
+import {MaterialDesignContent, SnackbarProvider} from "notistack";
+import {styled} from "@mui/material/styles";
 
 
 export interface DisplayState {
@@ -20,7 +21,7 @@ export interface Data {
 }
 
 export interface Result {
-  data: {[source: string] : Data},
+  data: { [source: string]: Data },
   currentSource: string,
   nbStep: number
 }
@@ -37,6 +38,31 @@ function Home() {
     severity: "success",
     open: false
   })
+
+  const StyledMaterialDesignContent = styled(MaterialDesignContent)(() => ({
+    '&.notistack-MuiContent-success': {
+      'svg': {
+        color: 'rgb(46, 125, 50)',
+      },
+      color: 'rgb(30, 70, 32)',
+      backgroundColor: '#edf7ed'
+
+    },
+    '&.notistack-MuiContent-error': {
+      'svg': {
+        color: 'rgb(211, 47, 47)',
+      },
+      color: 'rgb(141,37,37)',
+      backgroundColor: '#fdeded'
+    },
+    '&.notistack-MuiContent-info': {
+      'svg': {
+        color: 'rgb(2, 136, 209)',
+      },
+      color: 'rgb(1, 67, 97)',
+      backgroundColor: '#e5f6fd'
+    },
+  }));
 
 
   return (
@@ -55,6 +81,8 @@ function Home() {
           <ResultComponent
             result={result}
             setResult={setResult}
+            displayState={displayState}
+            setDisplayState={setDisplayState}
           />
         </div>
       </div>
@@ -63,6 +91,11 @@ function Home() {
         <SnackbarProvider
           autoHideDuration={2000}
           maxSnack={1}
+          Components={{
+            success: StyledMaterialDesignContent,
+            error: StyledMaterialDesignContent,
+            info: StyledMaterialDesignContent
+          }}
         />
       }
     </div>

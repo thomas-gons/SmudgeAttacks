@@ -6,7 +6,10 @@ import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import {styled} from '@mui/material/styles';
 import {Data} from '../pages/Home.js'
-import {enqueueSnackbar} from "notistack";
+import {closeSnackbar, enqueueSnackbar} from "notistack";
+import Badge from '@mui/material/Badge';
+import CheckIcon from '@mui/icons-material/Check';
+import CancelIcon from '@mui/icons-material/Cancel';
 
 import {useDropzone} from "react-dropzone";
 import {Grow} from "@mui/material";
@@ -80,15 +83,15 @@ const PhoneReferences = ({
                            result, setResult,
                          }) => {
 
-  const [phoneReferences, setPhoneReferences] = useState<{[ref: string]: number}>([]);
+  const [phoneReferences, setPhoneReferences] = useState<{ [ref: string]: number }>([]);
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
-  const [open, setOpen] = useState(false);
-
+  const [openAutocompletion, setOpenAutocompletion] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<Boolean>(true)
   const [files, setFiles] = useState([]);
 
-  const displayStatus = (message, severity, ...options) => {
-    enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
+  const displayStatus = (message, severity, action = null, options = {}) => {
+    enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
   }
 
   useEffect(() => {
@@ -101,7 +104,7 @@ const PhoneReferences = ({
         setPhoneReferences(response.data.reduce((acc, reference) => {
           acc[reference.ref] = reference.id
           return acc;
-        }, {} as {[key: string]: number}));
+        }, {} as { [key: string]: number }));
       })
       .catch(err => {
         console.error('There was an error loading the references!', err);
@@ -146,7 +149,8 @@ const PhoneReferences = ({
       });
   };
 
-  const handleUpdateReference = (e) => {}
+  const handleUpdateReference = (e) => {
+  }
 
   const handleDeleteReference = (e) => {
     console.log(phoneReferences)
@@ -255,12 +259,12 @@ const PhoneReferences = ({
           inputValue={inputValue}
           onInputChange={(event, newInputValue) => {
             setInputValue(newInputValue);
-            setReferenceLabel(Object.keys(phoneReferences).some(x => x === newInputValue) ? 'known':
-              newInputValue !== '' ? 'unknown': 'empty');
+            setReferenceLabel(Object.keys(phoneReferences).some(x => x === newInputValue) ? 'known' :
+              newInputValue !== '' ? 'unknown' : 'empty');
           }}
-          onOpen={() => setOpen(true)}
-          onClose={() => setOpen(false)}
-          open={open}
+          onOpen={() => setOpenAutocompletion(true)}
+          onClose={() => setOpenAutocompletion(false)}
+          open={openAutocompletion}
           freeSolo
         />
         {referenceLabel === 'unknown' && (
@@ -280,7 +284,7 @@ const PhoneReferences = ({
         )}
       </div>
       {referenceLabel === 'known' && (
-        <div style={{marginTop: "15px"}}>
+        <div style={{display: 'flex', marginTop: "15px"}}>
           {/*<Button*/}
           {/*  component="label"*/}
           {/*  variant="contained"*/}
@@ -294,7 +298,31 @@ const PhoneReferences = ({
           <Button
             component="label"
             variant="contained"
-            onClick={handleDeleteReference}
+            onClick={() => {
+              displayStatus('Do you really want to delete ' + inputValue, 'info',
+                (key) => (
+                  <Button
+                    variant={"contained"}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      backgroundColor: 'transparent', boxShadow: 'none'
+                    }}>
+                    <Badge
+                      badgeContent={<CheckIcon color="rgb(2, 136, 209)"/>}
+                      onClick={() => {handleDeleteReference(inputValue)}}
+                      >
+                    </Badge>
+                    <Badge
+                      badgeContent={<CancelIcon color="rgb(2, 136, 209)"/>}
+                      onClick={() => {
+                        closeSnackbar()
+                      }}
+                    >
+                    </Badge>
+                  </Button>
+                ), {autoHideDuration: null})
+            }}
           > Delete reference
           </Button>
         </div>

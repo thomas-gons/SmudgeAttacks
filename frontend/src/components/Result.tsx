@@ -1,11 +1,13 @@
 import {styled, useTheme} from '@mui/material/styles';
 import MobileStepper from '@mui/material/MobileStepper';
-import {Badge, Button, Grid, Paper} from '@mui/material';
+import {Badge, Button, Grid, Grow, Paper} from '@mui/material';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import {useState} from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
+import {enqueueSnackbar} from "notistack";
 import {Data, Result} from '../pages/Home'
+
 
 
 const Item = styled(Paper)(({theme}) => ({
@@ -17,10 +19,15 @@ const Item = styled(Paper)(({theme}) => ({
 }));
 
 
-const ResultComponent = ({result, setResult}) => {
+const ResultComponent = ({result, setResult, displayState, setDisplayState}) => {
   const theme = useTheme();
   const [activeStep, setActiveStep] = useState<Number>(0)
   const [showSecondHalf, setShowSecondHalf] = useState<Boolean>(false);
+
+  const displayStatus = (message, severity, ...options) => {
+    enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
+  }
+
   const handleNext = () => {
     const keys = Object.keys(result.data);
     const currentIndex = keys.indexOf(result.currentSource);
@@ -48,11 +55,25 @@ const ResultComponent = ({result, setResult}) => {
   };
 
   const removeResult = () => {
-    console.log("hey")
-    const keys = Object.keys(result.data);
     delete result.data[result.currentSource]
-    setResult(result)
+    const prevCurrentSource = result.currentSource
+    const keys = Object.keys(result.data)
+    if (keys.length > 0) {
+      setResult(prevResult => ({
+        data: prevResult.data,
+        currentSource: keys[0],
+        nbStep: prevResult.nbStep - 1
+      }));
+    } else {
+      setResult({
+        data: {},
+        currentSource: '',
+        nbStep: 0
+      })
+    }
+    setActiveStep(0);
     setShowSecondHalf(false)
+    displayStatus("Result from " + prevCurrentSource + "has been deleted", "success")
   }
 
   if (result.currentSource === "" || result.data == {}) {
@@ -70,7 +91,7 @@ const ResultComponent = ({result, setResult}) => {
   )
 
   if (pin_codes.length > 0) {
-      sequence = 'Sequence: ' + res['sequence']
+    sequence = 'Sequence: ' + res['sequence']
 
     const halfLength = Math.ceil(pin_codes.length / 2);
     const firstHalf = pin_codes.slice(0, halfLength);
@@ -119,13 +140,21 @@ const ResultComponent = ({result, setResult}) => {
 
   const stepper = (
     <MobileStepper
-      variant="dots"
+      variant="text"
       steps={result.nbStep}
       position="static"
       activeStep={activeStep}
-      sx={{maxWidth: 400, flexGrow: 1, marginTop: '20px'}}
+      sx={{
+        maxWidth: 400, flexGrow: 1, marginTop: '20px',
+        textAlign: 'center', color: theme.palette.text.secondary,
+      }}
       nextButton={
-        <Button size="small" onClick={handleNext} disabled={activeStep === result.nbStep}>
+        <Button
+          size="small"
+          onClick={handleNext}
+          disabled={activeStep === result.nbStep}
+          sx={{marginLeft: 1, paddingTop: 1, fontSize: 14}}
+        >
           Next
           {theme.direction === 'rtl' ? (
             <KeyboardArrowLeft/>
@@ -135,7 +164,13 @@ const ResultComponent = ({result, setResult}) => {
         </Button>
       }
       backButton={
-        <Button size="small" onClick={handleBack} disabled={activeStep === 0}>
+        <Button
+          size="small"
+          onClick={handleBack}
+          disabled={activeStep === 0}
+          sx={{marginRight: 1, paddingTop: 1, fontSize: 14}}
+
+        >
           {theme.direction === 'rtl' ? (
             <KeyboardArrowRight/>
           ) : (
@@ -162,27 +197,29 @@ const ResultComponent = ({result, setResult}) => {
           <div style={{marginTop: 5}}>{sequence}</div>
         </div>
         <div style={{position: 'relative', display: 'inline-block'}}>
-          <Button
-          style={{
-            position: "absolute", top: "0px", right: "0px",
-            fontWeight: '500',
-            color: "transparent ", backgroundColor: "transparent"
-          }}
-          color="primary"
-          onClick={() => removeResult}
-        >
-         <Badge
-           badgeContent={<CancelIcon style={{fontSize: 30, color:"#f00"}}/>}
-           color="error"
-           overlap="circular"
-           anchorOrigin={{
-             vertical: 'top',
-             horizontal: 'right',
-           }}
-           sx={{"& .MuiBadge-badge": {borderRadius: '50%', maxWidth: 0, backgroundColor:"  #fff", border: 5, borderColor:"#f00"}}}
-           style={{position: 'absolute', top: 0, right: 0,}}
-         ></Badge>
-          </Button>
+          <div
+            onClick={removeResult}
+          >
+            <Badge
+              badgeContent={<CancelIcon style={{fontSize: 30, color: "#f00"}}/>}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              sx={{
+                "& .MuiBadge-badge": {
+                  borderRadius: '50%',
+                  maxWidth: 0,
+                  backgroundColor: "  #fff",
+                  border: 5,
+                  borderColor: "#f00"
+                }
+              }}
+              style={{position: 'absolute', top: 0, right: 0,}}
+            ></Badge>
+          </div>
           <img src={image} alt="no result" style={{objectFit: 'fill', width: '350px', borderRadius: '5px'}}/>
         </div>
         {stepper}
