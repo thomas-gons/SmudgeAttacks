@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import api from "../api.js";
 import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { styled } from '@mui/material/styles';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
-import { useDropzone } from "react-dropzone";
+import {styled} from '@mui/material/styles';
+import {Data} from '../pages/Home.js'
+import {enqueueSnackbar} from "notistack";
+
+import {useDropzone} from "react-dropzone";
+import {Grow} from "@mui/material";
 
 // Styled Components
 const VisuallyHiddenInput = styled('input')({
@@ -40,9 +42,9 @@ const baseStyle = {
   transition: 'border .24s ease-in-out'
 };
 
-const focusedStyle = { borderColor: '#2196f3' };
-const acceptStyle = { borderColor: '#00e676', color: '#00e676' };
-const rejectStyle = { borderColor: '#ff1744', color: '#ff1744' };
+const focusedStyle = {borderColor: '#2196f3'};
+const acceptStyle = {borderColor: '#00e676', color: '#00e676'};
+const rejectStyle = {borderColor: '#ff1744', color: '#ff1744'};
 
 const thumbsContainer = {
   display: 'flex',
@@ -69,34 +71,37 @@ const thumbInner = {
   overflow: 'hidden'
 };
 
-const imgStyle = { display: 'block', width: 'auto', height: '100%' };
+const imgStyle = {display: 'block', width: 'auto', height: '100%'};
 
-// Utility function for displaying status
-const displayStatus = (message, severity, setAlertMessage, setAlertSeverity, setAlertOpen) => {
-  setAlertMessage(message);
-  setAlertSeverity(severity);
-  setAlertOpen(true);
-};
+type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
 // PhoneReferences Component
-const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => {
-  const [phoneReferences, setPhoneReferences] = useState([]);
+const PhoneReferences = ({
+                           result, setResult,
+                         }) => {
+
+  const [phoneReferences, setPhoneReferences] = useState<{[ref: string]: number}>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isNewReference, setIsNewReference] = useState(false);
+  const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
   const [open, setOpen] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertSeverity, setAlertSeverity] = useState('error');
+
   const [files, setFiles] = useState([]);
+
+  const displayStatus = (message, severity, ...options) => {
+    enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
+  }
 
   useEffect(() => {
     loadReferences();
   }, []);
 
   const loadReferences = () => {
-    api.get('/api/phone-references/get')
+    api.get('/api/phone-references')
       .then(response => {
-        setPhoneReferences(response.data.map(item => item.ref));
+        setPhoneReferences(response.data.reduce((acc, reference) => {
+          acc[reference.ref] = reference.id
+          return acc;
+        }, {} as {[key: string]: number}));
       })
       .catch(err => {
         console.error('There was an error loading the references!', err);
@@ -105,13 +110,13 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
 
   const handleAddReference = (e) => {
     if (!inputValue) {
-      displayStatus('Please enter a reference text.', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+      displayStatus('Please enter a reference text.', 'error');
       return;
-    } else if (!isNewReference) {
-      displayStatus('This reference already exists', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+    } else if (referenceLabel === 'known') {
+      displayStatus('This reference already exists', 'error');
       return;
     } else if (!e.target.files || e.target.files.length === 0) {
-      displayStatus('Please select a reference image.', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+      displayStatus('Please select a reference image.', 'error');
       return;
     }
 
@@ -120,31 +125,52 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
     formData.append('ref', inputValue);
     formData.append('phone', file);
 
-    api.post("/api/phone-references/add", formData, { responseType: 'blob' })
+    api.post("/api/phone-references", formData)
       .then(response => {
         if (response.status === 201) {
-          setPhoneReferences(prevReferences => [...prevReferences, { "ref": inputValue }]);
-          displayStatus('Reference added successfully!', 'success', setAlertMessage, setAlertSeverity, setAlertOpen);
+          setPhoneReferences(prevReferences => ({
+            ...prevReferences,
+            [response.data['ref']]: response.data['id']
+          }));
+          setInputValue("");
+          setReferenceLabel("empty")
+          displayStatus(response.data['ref'] + ' added successfully!', 'success');
           const imageURL = URL.createObjectURL(response.data);
-          setResult(imageURL);
+          // setResult(imageURL);
         }
       })
       .catch(err => {
         if (err.response && err.response.status === 422) {
-          displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+          displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error');
         }
       });
   };
 
+  const handleUpdateReference = (e) => {}
+
+  const handleDeleteReference = (e) => {
+    console.log(phoneReferences)
+    api.delete("/api/phone-references/" + phoneReferences[inputValue])
+      .then(response => {
+        if (response.status === 201) {
+          delete phoneReferences[inputValue];
+          setPhoneReferences(phoneReferences)
+          setInputValue("");
+          setReferenceLabel("empty")
+          displayStatus('Reference delete successfully!', 'success');
+        }
+      })
+  }
+
   const handleUploadSmudgeTraces = () => {
     if (!inputValue) {
-      displayStatus('Please enter a reference text.', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+      displayStatus('Please enter a reference text.', 'error');
       return;
-    } else if (isNewReference) {
-      displayStatus('Please select an existing phone reference or add one.', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+    } else if (referenceLabel === 'unknown' || referenceLabel === 'empty') {
+      displayStatus('Please select an existing phone reference or add one.', 'error');
       return;
     } else if (files.length === 0) {
-      displayStatus('Please select at least a phone image.', 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+      displayStatus('Please select at least a phone image.', 'error');
       return;
     }
 
@@ -157,24 +183,27 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
         .then(response => {
           if (response.status === 201) {
             const filename = response.data['filename'];
-            if (filename in result) return;
+            if (filename in Object.keys(result.data)) {
+              console.log("already processed");
+            }
 
-            const newRes = {
-              [filename]: {
-                'reference': response.data['reference'],
-                'sequence': response.data['sequence'],
-                'image': response.data['image'],
-                'pin_codes': response.data['pin_codes']
-              }
+            const data: Data = {
+              reference: response.data['reference'],
+              sequence: response.data['sequence'],
+              image: response.data['image'],
+              pin_codes: response.data['pin_codes']
             };
-            setResult(prevRes => ({ ...prevRes, ...newRes }));
-            setNbStep(prevNbStep => prevNbStep + 1)
-            setCurrentResult(filename);
+            setResult(prevRes => ({
+              data: {...prevRes.data, ...{[filename]: data}},
+              currentSource: filename,
+              nbStep: prevRes.nbStep + 1
+            }));
+            displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           }
         })
         .catch(err => {
           if (err.response && err.response.status === 422) {
-            displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error', setAlertMessage, setAlertSeverity, setAlertOpen);
+            displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error');
           }
         });
     });
@@ -209,7 +238,7 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
   const thumbs = files.map(file => (
     <div style={thumb} key={file.name}>
       <div style={thumbInner}>
-        <img src={file.preview} style={imgStyle} onLoad={() => URL.revokeObjectURL(file.preview)} />
+        <img src={file.preview} style={imgStyle} onLoad={() => URL.revokeObjectURL(file.preview)}/>
       </div>
     </div>
   ));
@@ -220,24 +249,26 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
         <Autocomplete
           disablePortal
           id="combo-box-demo"
-          options={phoneReferences}
-          sx={{ width: 300, height: 45 }}
-          renderInput={(params) => <TextField {...params} label="Phone References" />}
+          options={Object.keys(phoneReferences)}
+          sx={{width: 300, height: 45}}
+          renderInput={(params) => <TextField {...params} label="Phone References"/>}
           inputValue={inputValue}
           onInputChange={(event, newInputValue) => {
             setInputValue(newInputValue);
-            setIsNewReference(!phoneReferences.includes(newInputValue) && newInputValue !== '');
+            setReferenceLabel(Object.keys(phoneReferences).some(x => x === newInputValue) ? 'known':
+              newInputValue !== '' ? 'unknown': 'empty');
           }}
           onOpen={() => setOpen(true)}
           onClose={() => setOpen(false)}
           open={open}
           freeSolo
         />
-        {isNewReference && (
+        {referenceLabel === 'unknown' && (
           <Button
             component="label"
             variant="contained"
-            startIcon={<CloudUploadIcon />}
+            startIcon={<CloudUploadIcon/>}
+            style={{marginLeft: "20px"}}
           >
             Add new reference
             <VisuallyHiddenInput
@@ -248,8 +279,28 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
           </Button>
         )}
       </div>
+      {referenceLabel === 'known' && (
+        <div style={{marginTop: "15px"}}>
+          {/*<Button*/}
+          {/*  component="label"*/}
+          {/*  variant="contained"*/}
+          {/*> Update reference*/}
+          {/*  <VisuallyHiddenInput*/}
+          {/*    type="file"*/}
+          {/*    accept=".jpg, .jpeg, .png, .webp"*/}
+          {/*    onChange={handleUpdateReference}*/}
+          {/*  />*/}
+          {/*</Button>*/}
+          <Button
+            component="label"
+            variant="contained"
+            onClick={handleDeleteReference}
+          > Delete reference
+          </Button>
+        </div>
+      )}
       <section className="container">
-        <div {...getRootProps({ style })}>
+        <div {...getRootProps({style})}>
           <input {...getInputProps()} />
           <p>Drag and drop some files here, or click to select files</p>
         </div>
@@ -263,15 +314,7 @@ const PhoneReferences = ({ result, setResult, setCurrentResult, setNbStep }) => 
       >
         Upload smudge traces
       </Button>
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={2000}
-        onClose={() => setAlertOpen(false)}
-      >
-        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} sx={{ width: '100%' }}>
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+
     </div>
   );
 };

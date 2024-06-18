@@ -1,9 +1,12 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
+from rest_framework.response import Response
+
 from api.serializers import UserSerializer, ReferenceSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.views import APIView
 from django.core.handlers.wsgi import WSGIRequest
 
 import json
@@ -14,42 +17,52 @@ from api.views.digitRecognition import *
 from api.views.orderGuessing import *
 
 
-# generic views for basics CRUD
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
 
-class GetPhoneReferencesView(generics.ListCreateAPIView):
+class PhoneReferences(APIView):
     serializer_class = ReferenceSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return ReferenceModel.objects.all()
+    def get(self, request, format=None):
+        references = ReferenceModel.objects.all()
+        serializer = ReferenceSerializer(references, many=True)
+        return Response(serializer.data)
 
+    def post(self, request, format=None):
+        image = preprocess_image(request.FILES['phone'])
+        reference = request.POST.get('ref')
+
+        image = model_wrapper.segment_phone(image)
+        if image is None:
+            return HttpResponse(status=422)
+
+        bboxes, b64_image = DigitRecognition(img=image).process_data()
+
+        ref_m = ReferenceModel.objects.create(ref=reference)
+        ref_m.save()
+        for i, bb in enumerate(bboxes):
+            bb_m = BoundingBoxModel(x=bb.x, y=bb.y, w=bb.w, h=bb.h, cipher=i, ref=ref_m)
+            bb_m.save()
+
+        response = {
+            'image': b64_image,
+            'ref': reference,
+            'id': ref_m.id
+        }
+        return HttpResponse(json.dumps(response), content_type='application/json', status=201)
+
+    def put(self, request, format=None):
+        pass
+
+    def delete(self, request, pk, format=None):
+        ReferenceModel.objects.filter(id=pk).delete()
+        return HttpResponse(status=201)
 
 model_wrapper = ModelWrapper()
-
-
-@csrf_exempt
-def add_bb_ref(request: WSGIRequest) -> HttpResponse:
-    image = preprocess_image(request.FILES['phone'])
-
-    image = model_wrapper.segment_phone(image)
-    if image is None:
-        return HttpResponse(status=422)
-
-    bboxes, blob_img = DigitRecognition(img=image).process_data()
-
-    ref_m = ReferenceModel.objects.create(ref=request.POST.get('ref'))
-    ref_m.save()
-    for i, bb in enumerate(bboxes):
-        bb_m = BoundingBoxModel(x=bb.x, y=bb.y, w=bb.w, h=bb.h, cipher=i, ref=ref_m)
-        bb_m.save()
-
-    return HttpResponse(blob_img, content_type='image/png', status=201)
-
 
 @csrf_exempt
 def detect_phone(request: WSGIRequest) -> HttpResponse:

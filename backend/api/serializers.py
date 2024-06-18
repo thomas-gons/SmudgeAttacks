@@ -17,7 +17,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReferenceModel
-        fields = ["ref"]
+        fields = '__all__'
 
     def create(self, validated_data):
         ref = ReferenceModel.objects.create(**validated_data)

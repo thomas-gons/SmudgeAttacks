@@ -179,9 +179,9 @@ class DigitRecognition:
         # export the "reference" result for frontend displaying
         pw = PyplotWrapper(is_subplots=True)
         pw.plot_reference(self.image, pin_bboxes, list(range(10)))
-        blob_image = pw.export_as_blob()
+        b64_image = pw.export_as_b64()
 
-        return pin_bboxes, blob_image
+        return pin_bboxes, b64_image
 
 
 def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[List[Tuple[int, float]], str]:

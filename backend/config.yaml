@@ -8,7 +8,7 @@ n_more_probable_pins: 20
 
 
 ModelWrapper:
-  phone_seg_weights: 'assets/weights/yolov8-segm-phone.pt'
+  phone_seg_weights: 'assets/weights/yolov8-segx-2-phone.pt'
   smudges_det_weights: 'assets/weights/yolov8-detx-2-smudges.pt'
 
   interp_step: 15                   # interpolation of segmented line
