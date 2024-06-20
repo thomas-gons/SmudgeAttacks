@@ -7,6 +7,7 @@ import {useState} from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
 import {enqueueSnackbar} from "notistack";
 import {Data, Result} from '../pages/Home'
+import AdditionalData from "./AdditionalData.jsx";
 
 
 
@@ -227,6 +228,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
       <div style={{height: '477px', width: '170px', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
         {pin_codes_grid}
       </div>
+      <AdditionalData/>
     </div>
   );
 }

@@ -41,6 +41,9 @@ class PyplotWrapper:
     def show():
         plt.show()
 
+    def plot_image(self, image: np.ndarray) -> None:
+        self.ax.imshow(image)
+
     def plot_reference(
             self,
             image: np.ndarray,

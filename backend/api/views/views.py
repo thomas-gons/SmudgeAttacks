@@ -70,9 +70,11 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
     image = request.FILES.get("image")
     filename = image.name
 
-    image = preprocess_image(image)
+    image = get_image(image)
+    original_shape = image.shape
+    image_cropped = preprocess_image(image)
 
-    dst = model_wrapper.segment_phone(image)
+    dst = model_wrapper.segment_phone(image_cropped)
     if dst is None:
         return HttpResponse(status=422)
 
@@ -80,6 +82,12 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
     ciphers, b64_img = guess_ciphers(dst, boxes, ref)
     most_likely_pin_codes = guess_order(ciphers)
 
+    pw = PyplotWrapper(True)
+    pw.plot_image(image)
+    # x_fact, y_fact = np.array(original_shape)[:2] / (640, 640)
+    # [box.scale(x_fact, y_fact) for box in boxes]
+    # pw.plot_bounding_boxes(boxes)
+    # b64_img = pw.export_as_b64()
     sequence_formatted = " - ".join(most_likely_pin_codes[0]) if len(most_likely_pin_codes) > 0 else ''
     response = {
         'sequence': sequence_formatted,

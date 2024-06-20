@@ -38,6 +38,12 @@ class BoundingBox:
         h = random.randint(0, size[1])
         return cls(x, y, w, h)
 
+    def scale(self, x_fact, y_fact):
+        self.x *= x_fact
+        self.y *= y_fact
+        self.w *= x_fact
+        self.h *= y_fact
+
     def __repr__(self) -> str:
         return f"BoundingBox({self.x}, {self.y}, {self.w}, {self.h})"
 
