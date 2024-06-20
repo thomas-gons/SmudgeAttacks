@@ -24,8 +24,12 @@ class StatsBuilder:
                 self.all_pins_dict[pin] = 1 if self.all_pins_dict.get(pin) is None else self.all_pins_dict[pin] + 1
                 self.all_pins[int(pin)] += 1
 
+            for i in range(1000000):
+                if self.all_pins_dict.get(i) is None:
+                    self.all_pins[i] = 1
+
+            self.all_pins[np.where(self.all_pins == 0)] = 1
             self.sample_size = int(self.all_pins.sum())
-            self.unique_pins = self.all_pins[np.where(self.all_pins > 0)]
 
     def __compute_frequencies(self) -> np.ndarray:
         return self.all_pins / self.sample_size
@@ -60,5 +64,6 @@ class StatsBuilder:
         self.__compute_markov_chain_transitions().dump(path + "markovChainTransitionMatDump")
 
 
-sb = StatsBuilder('/home/thomas/PycharmProjects/test/RockYou-6-digit.txt')
-sb.save_stats()
+if __name__ == '__main__':
+    sb = StatsBuilder('/home/thomas/PycharmProjects/test/RockYou-6-digit.txt')
+    sb.save_stats()

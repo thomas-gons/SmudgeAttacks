@@ -12,7 +12,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import CancelIcon from '@mui/icons-material/Cancel';
 
 import {useDropzone} from "react-dropzone";
-import {Grow} from "@mui/material";
+import {Checkbox, Container, FormControlLabel, FormGroup, Grid, Grow, Input, Slider} from "@mui/material";
+import * as React from "react";
 
 // Styled Components
 const VisuallyHiddenInput = styled('input')({
@@ -79,17 +80,15 @@ const imgStyle = {display: 'block', width: 'auto', height: '100%'};
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
 // PhoneReferences Component
-const PhoneReferences = ({
-                           result, setResult,
-                         }) => {
+const PhoneReferences = ({result, setResult}) => {
 
-  const [phoneReferences, setPhoneReferences] = useState<{ [ref: string]: number }>([]);
+  const [openAutocompletion, setOpenAutocompletion] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [phoneReferences, setPhoneReferences] = useState<{ [ref: string]: number }>({});
+  const [orderGuessingAlgorithms, setOrderGuessingAlgorithms] = useState<{[algorithm: string]: boolean}>({});
+  const [cipherGuess, setCipherGuess] = useState<string[]>(Array(6))
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
-  const [openAutocompletion, setOpenAutocompletion] = useState(false);
-  const [isDeleting, setIsDeleting] = useState<Boolean>(true)
-  const [files, setFiles] = useState([]);
-
   const displayStatus = (message, severity, action = null, options = {}) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
   }
@@ -98,13 +97,69 @@ const PhoneReferences = ({
     loadReferences();
   }, []);
 
+  const [pinLength, setPinLength] = useState(6); // Valeur initiale du slider
+
+  const pinLengthSliderLike = (
+    <div style={{display: 'flex', flexDirection: 'row'}}>
+      <div style={{minWidth: 'fit-content', marginRight: '15px', color: '#5f5f5f'}}>
+        Pin length
+      </div>
+    <Slider
+      aria-label="PIN code's length"
+      defaultValue={6}
+      onChange={(e) => {
+        const newPinLength = e.target.value
+        setPinLength(newPinLength)
+        const newCipherGuess = Array(newPinLength).fill(undefined);
+        for (let i = 0; i < Math.min(newPinLength, cipherGuess.length); i++) {
+          newCipherGuess[i] = cipherGuess[i];
+        }
+        setCipherGuess(newCipherGuess)
+      }}
+      valueLabelDisplay="on"
+      shiftStep={1}
+      step={1}
+      marks
+      min={4}
+      max={8}
+      sx={{
+        '& .MuiSlider-thumb': {
+          height: 25,
+          width: 25,
+        },
+        '& .MuiSlider-valueLabel': {
+          fontSize: 18,
+          fontWeight: 'normal',
+          top: 31,
+          left: -4,
+          backgroundColor: 'unset',
+          color: 'rgb(250, 250, 250)',
+          '&::before': {
+            display: 'none',
+          },
+          '& *': {
+            background: 'transparent',
+            color: '#fff',
+          },
+        },
+      }}
+    />
+    </div>
+  );
+
   const loadReferences = () => {
     api.get('/api/phone-references')
       .then(response => {
-        setPhoneReferences(response.data.reduce((acc, reference) => {
-          acc[reference.ref] = reference.id
+        const refs = response.data['refs']
+        setPhoneReferences(refs.reduce((acc, ref) => {
+          acc[ref.ref] = ref.id
           return acc;
         }, {} as { [key: string]: number }));
+        const newOrderGuessingAlgorithms = response.data['order_guessing_algorithms'].reduce((acc, algorithm) => {
+          acc[algorithm] = true
+          return acc
+        }, {});
+        setOrderGuessingAlgorithms(newOrderGuessingAlgorithms)
       })
       .catch(err => {
         console.error('There was an error loading the references!', err);
@@ -128,6 +183,7 @@ const PhoneReferences = ({
     formData.append('ref', inputValue);
     formData.append('phone', file);
 
+
     api.post("/api/phone-references", formData)
       .then(response => {
         if (response.status === 201) {
@@ -148,9 +204,6 @@ const PhoneReferences = ({
         }
       });
   };
-
-  const handleUpdateReference = (e) => {
-  }
 
   const handleDeleteReference = (e) => {
     console.log(phoneReferences)
@@ -182,6 +235,8 @@ const PhoneReferences = ({
       const formData = new FormData();
       formData.append("ref", inputValue);
       formData.append('image', file);
+      formData.append("order_guessing_algorithms", Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm]))
+      formData.append('cipherGuess', cipherGuess);
 
       api.post("api/find-pin-code", formData)
         .then(response => {
@@ -247,9 +302,53 @@ const PhoneReferences = ({
     </div>
   ));
 
+  const config = (
+    <div style={{marginTop: '20px'}}>
+      <FormGroup sx={{}}>
+        <Grid container spacing={0}>
+        {Object.keys(orderGuessingAlgorithms).map((algorithm, _) => (
+          <Grid item xs={6}>
+            <FormControlLabel control={
+              <Checkbox
+                defaultChecked
+                onChange={(e) => {
+                  setOrderGuessingAlgorithms(prevState => {
+                    return {...prevState, [algorithm]: e.target.checked };
+                  });
+                  console.log(orderGuessingAlgorithms)
+                }}
+              />
+            } label={algorithm}/>
+          </Grid>
+        ))}
+        </Grid>
+        <div style={{display: 'flex', flexDirection:'column', marginTop: '20px'}}>
+          Cipher guesses
+          <div>
+          {Array(pinLength).fill('').map((_, index) => (
+            <Input
+              onChange={(e) => {
+                const lastChar = e.target.value.slice(-1)
+                e.target.value = /[0-9]/.test(lastChar) ? lastChar: '';
+                const newCipherGuess = [...cipherGuess];
+                newCipherGuess[index] = lastChar;
+                setCipherGuess(newCipherGuess);
+              }}
+              sx={{
+                width: 15,
+                margin: '0 5px'
+            }}/>
+          ))}
+          </div>
+        </div>
+      </FormGroup>
+    </div>
+  );
+
   return (
     <div>
-      <div className="newReference">
+      {pinLengthSliderLike}
+      <div className="newReference" style={{marginTop: '10px'}}>
         <Autocomplete
           disablePortal
           id="combo-box-demo"
@@ -310,8 +409,10 @@ const PhoneReferences = ({
                     }}>
                     <Badge
                       badgeContent={<CheckIcon color="rgb(2, 136, 209)"/>}
-                      onClick={() => {handleDeleteReference(inputValue)}}
-                      >
+                      onClick={() => {
+                        handleDeleteReference(inputValue)
+                      }}
+                    >
                     </Badge>
                     <Badge
                       badgeContent={<CancelIcon color="rgb(2, 136, 209)"/>}
@@ -342,7 +443,7 @@ const PhoneReferences = ({
       >
         Upload smudge traces
       </Button>
-
+      {config}
     </div>
   );
 };

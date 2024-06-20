@@ -28,6 +28,7 @@ CipherGuessing:
 
 
 OrderGuessing:
+  # '###' will be replaced with the pin length's literal
   transition_matrix: 'assets/stats/###_symbols/markovChainTransitionMatDump'
   prob_by_index: 'assets/stats/###_symbols/probByIndexDump'
   frequencies: 'assets/stats/###_symbols/frequenciesDump'

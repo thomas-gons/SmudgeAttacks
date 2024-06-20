@@ -30,7 +30,11 @@ class PhoneReferences(APIView):
     def get(self, request, format=None):
         references = ReferenceModel.objects.all()
         serializer = ReferenceSerializer(references, many=True)
-        return Response(serializer.data)
+        data = json.dumps({
+            "refs": serializer.data,
+            "order_guessing_algorithms": algorithms
+        })
+        return HttpResponse(data, content_type='application/json')
 
     def post(self, request, format=None):
         image = preprocess_image(request.FILES['phone'])
@@ -68,10 +72,11 @@ model_wrapper = ModelWrapper()
 def detect_phone(request: WSGIRequest) -> HttpResponse:
     ref = request.POST.get('ref')
     image = request.FILES.get("image")
+    cipher_guess = request.POST.get('cipherGuess')
+    cipher_guessing_algorithms = request.get('order_guessing_algorithms')
     filename = image.name
 
     image = get_image(image)
-    original_shape = image.shape
     image_cropped = preprocess_image(image)
 
     dst = model_wrapper.segment_phone(image_cropped)
@@ -80,14 +85,10 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
 
     boxes = model_wrapper.detect_smudge(dst, filename)
     ciphers, b64_img = guess_ciphers(dst, boxes, ref)
-    most_likely_pin_codes = guess_order(ciphers)
+    most_likely_pin_codes = guess_order(ciphers, cipher_guessing_algorithms)
 
     pw = PyplotWrapper(True)
     pw.plot_image(image)
-    # x_fact, y_fact = np.array(original_shape)[:2] / (640, 640)
-    # [box.scale(x_fact, y_fact) for box in boxes]
-    # pw.plot_bounding_boxes(boxes)
-    # b64_img = pw.export_as_b64()
     sequence_formatted = " - ".join(most_likely_pin_codes[0]) if len(most_likely_pin_codes) > 0 else ''
     response = {
         'sequence': sequence_formatted,

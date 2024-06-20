@@ -12,14 +12,14 @@ body {
 }
 
 #left {
-  width: 40%;
+  width: 30%;
 }
 
 #right {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 60%;
+  width: 100%;
 }
 
 /* Container for the whole page */
