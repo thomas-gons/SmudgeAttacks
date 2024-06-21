@@ -62,6 +62,13 @@ function Home() {
       color: 'rgb(1, 67, 97)',
       backgroundColor: '#e5f6fd'
     },
+    '&.notistack-MuiContent-warning': {
+      'svg': {
+        color: 'rgb(237, 108, 2)',
+      },
+      color: 'rgb(102, 60, 0)',
+      backgroundColor: '#fff4e5'
+    }
   }));
 
 
@@ -94,7 +101,8 @@ function Home() {
           Components={{
             success: StyledMaterialDesignContent,
             error: StyledMaterialDesignContent,
-            info: StyledMaterialDesignContent
+            info: StyledMaterialDesignContent,
+            warning: StyledMaterialDesignContent
           }}
         />
       }

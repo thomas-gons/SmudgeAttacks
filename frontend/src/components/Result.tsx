@@ -21,7 +21,7 @@ const Item = styled(Paper)(({theme}) => ({
 const ResultComponent = ({result, setResult, displayState, setDisplayState}) => {
   const theme = useTheme();
   const [activeStep, setActiveStep] = useState<Number>(0)
-  const [showSecondHalf, setShowSecondHalf] = useState<Boolean>(false);
+  const [showSecondPart, setShowSecondPart] = useState<Boolean>(false);
 
   const displayStatus = (message, severity, ...options) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
@@ -37,7 +37,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
       currentSource: keys[nextIndex],
       nbStep: prevResult.nbStep
     }))
-    setShowSecondHalf(false)
+    setShowSecondPart(false)
   };
 
   const handleBack = () => {
@@ -50,7 +50,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
       currentSource: keys[prevIndex],
       nbStep: prevResult.nbStep
     }))
-    setShowSecondHalf(false)
+    setShowSecondPart(false)
   };
 
   const removeResult = () => {
@@ -71,7 +71,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
       })
     }
     setActiveStep(0);
-    setShowSecondHalf(false)
+    setShowSecondPart(false)
     displayStatus("Result from " + prevCurrentSource + "has been deleted", "success")
   }
 
@@ -92,18 +92,18 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
   if (pin_codes.length > 0) {
     sequence = 'Sequence: ' + res['sequence']
 
-    const halfLength = Math.ceil(pin_codes.length / 2);
-    const firstHalf = pin_codes.slice(0, halfLength);
-    const secondHalf = pin_codes.slice(halfLength);
+    const splitIndex = Math.max(Math.ceil(pin_codes.length / 2), 10)
+    const firstPart = pin_codes.slice(0, splitIndex);
+    const secondPart = pin_codes.slice(splitIndex);
 
     pin_codes_grid = (
       <div style={{position: 'relative'}}>
         <p style={{color: theme.palette.text.secondary}}>PIN codes</p>
         <Paper elevation={1} style={{padding: '16px'}}>
           <Grid container spacing={1.5} direction={"column"}>
-            {(showSecondHalf ? secondHalf : firstHalf).map((item, index) => (
+            {(showSecondPart ? secondPart : firstPart).map((item, index) => (
               <Grid item xs={1} key={index}>
-                <Item style={{padding: '5px 25px'}}>{showSecondHalf ? index + halfLength + 1 : index + 1}. {item}</Item>
+                <Item style={{padding: '5px 25px'}}>{showSecondPart ? index + splitIndex + 1 : index + 1}. {item}</Item>
               </Grid>
             ))}
           </Grid>
@@ -119,10 +119,10 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
             color: "white", backgroundColor: "rgb(25, 118, 210)"
           }}
           color="primary"
-          onClick={() => setShowSecondHalf(!showSecondHalf)}
+          onClick={() => setShowSecondPart(!showSecondPart)}
         >
           <Badge
-            badgeContent={showSecondHalf ? '-' : '+'}
+            badgeContent={showSecondPart ? '-' : '+'}
             color="primary"
             overlap="circular"
             anchorOrigin={{

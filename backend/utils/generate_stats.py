@@ -9,22 +9,28 @@ p = inflect.engine()
 
 
 class StatsBuilder:
-    def __init__(self, filename):
+    symbols = '0123456789'
+
+    def __init__(self, filename, pin_len):
         self.filename: LiteralString = filename
 
         with open(filename, 'r') as f:
             # do not count '\n'
             self.pin_len = len(f.readline()) - 1
+            if self.pin_len != pin_len:
+                raise ValueError("The PIN length is not the one expected")
+
             f.seek(0)
 
+            symbols_product_space = len(self.symbols) ** self.pin_len
             self.all_pins_dict = {}
-            self.all_pins = np.zeros((10 ** self.pin_len))
+            self.all_pins = np.zeros(symbols_product_space)
             for line in tqdm(f.readlines(), desc="File reading: "):
                 pin = line.strip()
                 self.all_pins_dict[pin] = 1 if self.all_pins_dict.get(pin) is None else self.all_pins_dict[pin] + 1
                 self.all_pins[int(pin)] += 1
 
-            for i in range(1000000):
+            for i in range(symbols_product_space):
                 if self.all_pins_dict.get(i) is None:
                     self.all_pins[i] = 1
 
@@ -45,13 +51,10 @@ class StatsBuilder:
 
     def __compute_markov_chain_transitions(self) -> np.ndarray:
         markov_chain_transition = np.zeros((10, 10))
-        # Parcours des séquences de pins et de leurs occurrences
         for pin, occ in tqdm(self.all_pins_dict.items(), desc="Markov chain transition computation: "):
             for i in range(self.pin_len - 1):
-                # Mise à jour de la matrice de transition
                 markov_chain_transition[int(pin[i]), int(pin[i + 1])] += occ
 
-        # Division des occurrences pour obtenir des probabilités
         row_sums = markov_chain_transition.sum(axis=1, keepdims=True)
         np.divide(markov_chain_transition, row_sums, out=markov_chain_transition, where=row_sums != 0)
         return markov_chain_transition

@@ -10,9 +10,18 @@ import {closeSnackbar, enqueueSnackbar} from "notistack";
 import Badge from '@mui/material/Badge';
 import CheckIcon from '@mui/icons-material/Check';
 import CancelIcon from '@mui/icons-material/Cancel';
+import TuneIcon from '@mui/icons-material/Tune';
 
-import {useDropzone} from "react-dropzone";
-import {Checkbox, Container, FormControlLabel, FormGroup, Grid, Grow, Input, Slider} from "@mui/material";
+import {
+  Checkbox, CircularProgress,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  Grid,
+  Grow,
+  Input,
+  Slider
+} from "@mui/material";
 import * as React from "react";
 
 // Styled Components
@@ -89,6 +98,8 @@ const PhoneReferences = ({result, setResult}) => {
   const [cipherGuess, setCipherGuess] = useState<string[]>(Array(6))
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
+  const [isConfigOpen, setIsConfigOpen] = useState<Boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<Boolean>(false)
   const displayStatus = (message, severity, action = null, options = {}) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
   }
@@ -101,7 +112,7 @@ const PhoneReferences = ({result, setResult}) => {
 
   const pinLengthSliderLike = (
     <div style={{display: 'flex', flexDirection: 'row'}}>
-      <div style={{minWidth: 'fit-content', marginRight: '15px', color: '#5f5f5f'}}>
+      <div style={{minWidth: 'fit-content', marginRight: '25px', marginTop: '1px', color: '#5f5f5f'}}>
         Pin length
       </div>
     <Slider
@@ -123,6 +134,7 @@ const PhoneReferences = ({result, setResult}) => {
       min={4}
       max={8}
       sx={{
+        maxWidth: '195px',
         '& .MuiSlider-thumb': {
           height: 25,
           width: 25,
@@ -200,13 +212,12 @@ const PhoneReferences = ({result, setResult}) => {
       })
       .catch(err => {
         if (err.response && err.response.status === 422) {
-          displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error');
+          displayStatus(err.response.data, 'error');
         }
       });
   };
 
   const handleDeleteReference = (e) => {
-    console.log(phoneReferences)
     api.delete("/api/phone-references/" + phoneReferences[inputValue])
       .then(response => {
         if (response.status === 201) {
@@ -217,6 +228,22 @@ const PhoneReferences = ({result, setResult}) => {
           displayStatus('Reference delete successfully!', 'success');
         }
       })
+  }
+
+  const handleBuildNewStatistics = (e) => {
+    const formData = new FormData();
+    formData.append("new_pin_code_length", pinLength.toString())
+    api.post("api/build-statistics", formData)
+      .then(response => {
+        if (response.status === 201) {
+          displayStatus(response.data, 'You can now retry the processing', 'success');
+        }
+      })
+      .catch(err => {
+        if (err.response && err.response.status === 422) {
+          displayStatus(err.response.data, 'error');
+        }
+      });
   }
 
   const handleUploadSmudgeTraces = () => {
@@ -237,14 +264,12 @@ const PhoneReferences = ({result, setResult}) => {
       formData.append('image', file);
       formData.append("order_guessing_algorithms", Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm]))
       formData.append('cipherGuess', cipherGuess);
-
+      setIsProcessing(true)
       api.post("api/find-pin-code", formData)
         .then(response => {
           if (response.status === 201) {
+            setIsProcessing(false)
             const filename = response.data['filename'];
-            if (filename in Object.keys(result.data)) {
-              console.log("already processed");
-            }
 
             const data: Data = {
               reference: response.data['reference'],
@@ -262,37 +287,41 @@ const PhoneReferences = ({result, setResult}) => {
         })
         .catch(err => {
           if (err.response && err.response.status === 422) {
-            displayStatus(`The image "${file.name}" does not appear to contain a phone`, 'error');
+            if (err.response.data.startsWith('No statistics')) {
+              displayStatus(err.response.data, 'warning',
+                (key) => (
+                  <Button
+                    variant={"contained"}
+                    style={{
+                      justifyContent: 'space-between',
+                      backgroundColor: 'transparent', boxShadow: 'none'
+                    }}>
+                    <Badge
+                      badgeContent={<CheckIcon/>}
+                    >
+                     <VisuallyHiddenInput
+                        type="file"
+                        accept=".txt"
+                        onChange={() => {console.log('TODO')}}
+                    />
+                    </Badge>
+                    <Badge
+                      badgeContent={<CancelIcon/>}
+                      onClick={() => {
+                        closeSnackbar()
+                      }}
+                    >
+                    </Badge>
+                  </Button>
+                ), {autoHideDuration: null, style: {whiteSpace: 'pre-line'}})
+            } else {
+              displayStatus(err.response.data, 'warning');
+            }
           }
+          setIsProcessing(false)
         });
     });
   };
-
-  const {
-    getRootProps,
-    getInputProps,
-    isFocused,
-    isDragAccept,
-    isDragReject
-  } = useDropzone({
-    accept: {
-      'image/jpeg': ['.jpeg', '.jpg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp']
-    },
-    onDrop: acceptedFiles => {
-      setFiles(acceptedFiles.map(file => Object.assign(file, {
-        preview: URL.createObjectURL(file)
-      })));
-    }
-  });
-
-  const style = useMemo(() => ({
-    ...baseStyle,
-    ...(isFocused ? focusedStyle : {}),
-    ...(isDragAccept ? acceptStyle : {}),
-    ...(isDragReject ? rejectStyle : {})
-  }), [isFocused, isDragAccept, isDragReject]);
 
   const thumbs = files.map(file => (
     <div style={thumb} key={file.name}>
@@ -303,8 +332,21 @@ const PhoneReferences = ({result, setResult}) => {
   ));
 
   const config = (
-    <div style={{marginTop: '20px'}}>
-      <FormGroup sx={{}}>
+    <div
+      style={{
+        width: '100%', marginTop: '10px', marginBottom: '20px', padding: (isConfigOpen ? '15px': '0px'),
+        border: (isConfigOpen ? '1px solid #ddd': '0'), borderRadius: 5, maxWidth: 'fit-content'
+      }}
+    >
+      <div
+        style={{color:'rgb(95, 95, 95)'}}
+        onClick={() => {setIsConfigOpen(!isConfigOpen)}}>
+         Configuration
+         <Badge badgeContent={<TuneIcon color="rgb(2, 136, 209)"/>} sx={{marginLeft: '15px', marginTop: '-3px'}}/>
+
+      </div>
+
+      {isConfigOpen && <FormGroup sx={{marginTop: '10px'}}>
         <Grid container spacing={0}>
         {Object.keys(orderGuessingAlgorithms).map((algorithm, _) => (
           <Grid item xs={6}>
@@ -341,7 +383,7 @@ const PhoneReferences = ({result, setResult}) => {
           ))}
           </div>
         </div>
-      </FormGroup>
+      </FormGroup>}
     </div>
   );
 
@@ -371,7 +413,7 @@ const PhoneReferences = ({result, setResult}) => {
             component="label"
             variant="contained"
             startIcon={<CloudUploadIcon/>}
-            style={{marginLeft: "20px"}}
+            style={{marginLeft: "20px", minWidth: 'fit-content'}}
           >
             Add new reference
             <VisuallyHiddenInput
@@ -381,69 +423,88 @@ const PhoneReferences = ({result, setResult}) => {
             />
           </Button>
         )}
-      </div>
       {referenceLabel === 'known' && (
-        <div style={{display: 'flex', marginTop: "15px"}}>
-          {/*<Button*/}
-          {/*  component="label"*/}
-          {/*  variant="contained"*/}
-          {/*> Update reference*/}
-          {/*  <VisuallyHiddenInput*/}
-          {/*    type="file"*/}
-          {/*    accept=".jpg, .jpeg, .png, .webp"*/}
-          {/*    onChange={handleUpdateReference}*/}
-          {/*  />*/}
-          {/*</Button>*/}
-          <Button
-            component="label"
-            variant="contained"
-            onClick={() => {
-              displayStatus('Do you really want to delete ' + inputValue, 'info',
-                (key) => (
-                  <Button
-                    variant={"contained"}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      backgroundColor: 'transparent', boxShadow: 'none'
-                    }}>
-                    <Badge
-                      badgeContent={<CheckIcon color="rgb(2, 136, 209)"/>}
-                      onClick={() => {
-                        handleDeleteReference(inputValue)
-                      }}
-                    >
-                    </Badge>
-                    <Badge
-                      badgeContent={<CancelIcon color="rgb(2, 136, 209)"/>}
-                      onClick={() => {
-                        closeSnackbar()
-                      }}
-                    >
-                    </Badge>
-                  </Button>
-                ), {autoHideDuration: null})
-            }}
-          > Delete reference
-          </Button>
-        </div>
+        <Button
+          component="label"
+          variant="contained"
+          sx={{marginLeft: '20px', minWidth: 'fit-content'}}
+          onClick={() => {
+            displayStatus('Do you really want to delete ' + inputValue, 'info',
+              (key) => (
+                <Button
+                  variant={"contained"}
+                  style={{
+                    justifyContent: 'space-between',
+                    backgroundColor: 'transparent', boxShadow: 'none'
+                  }}>
+                  <Badge
+                    badgeContent={<CheckIcon/>}
+                    onClick={() => {
+                      handleDeleteReference(inputValue)
+                    }}
+                  >
+                  </Badge>
+                  <Badge
+                    badgeContent={<CancelIcon/>}
+                    onClick={() => {
+                      closeSnackbar()
+                    }}
+                  >
+                  </Badge>
+                </Button>
+              ), {autoHideDuration: null})
+          }}
+        > Delete reference
+        </Button>
       )}
+      </div>
+
       <section className="container">
-        <div {...getRootProps({style})}>
-          <input {...getInputProps()} />
-          <p>Drag and drop some files here, or click to select files</p>
-        </div>
+        <Button
+          component="label"
+          variant="contained"
+          style={{marginTop: "20px"}}
+        >
+          Add Smudge Traces
+          <VisuallyHiddenInput
+            type="file"
+            accept=".jpg, .jpeg, .png, .webp"
+            multiple
+            required
+            onChange={(event) => {
+              const nbFileLimit = 5
+              let acceptedFiles = Array.from(event.target.files);
+              if (acceptedFiles.length > nbFileLimit) {
+                displayStatus("You can only select up to " + nbFileLimit + " files.", "error")
+                console.log(acceptedFiles)
+                acceptedFiles = acceptedFiles.slice(0, nbFileLimit)
+                console.log(acceptedFiles)
+              }
+              setFiles(acceptedFiles.map(file => Object.assign(file, {
+                preview: URL.createObjectURL(file)
+              })));
+            }}
+          />
+        </Button>
         <aside style={thumbsContainer}>
           {thumbs}
         </aside>
       </section>
+      {config}
+      <div style={{display: 'flex', alignItems: 'center'}}>
       <Button
         variant="contained"
         onClick={handleUploadSmudgeTraces}
+        startIcon={<CloudUploadIcon/>}
       >
-        Upload smudge traces
+        Process Smudge Traces
       </Button>
-      {config}
+        {isProcessing &&
+          <div style={{marginLeft: '20px'}}>
+            <CircularProgress size='2em'/>
+          </div>
+        }
+      </div>
     </div>
   );
 };

@@ -1,8 +1,7 @@
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
-from rest_framework.response import Response
 
 from api.serializers import UserSerializer, ReferenceSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15,6 +14,7 @@ from api.views.imageProcessing import *
 from api.views.modelWrapper import ModelWrapper
 from api.views.digitRecognition import *
 from api.views.orderGuessing import *
+from utils.cipher_to_literal import ciphers_to_literal
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -62,18 +62,27 @@ class PhoneReferences(APIView):
     def put(self, request, format=None):
         pass
 
+    @staticmethod
     def delete(self, request, pk, format=None):
         ReferenceModel.objects.filter(id=pk).delete()
         return HttpResponse(status=201)
 
+
 model_wrapper = ModelWrapper()
+
 
 @csrf_exempt
 def detect_phone(request: WSGIRequest) -> HttpResponse:
     ref = request.POST.get('ref')
     image = request.FILES.get("image")
-    cipher_guess = request.POST.get('cipherGuess')
-    cipher_guessing_algorithms = request.get('order_guessing_algorithms')
+    cipher_guess = request.POST.get('cipherGuess').split(',')
+    cipher_guessing_algorithms = request.POST.get('order_guessing_algorithms').split(',')
+
+    new_pin_length = len(cipher_guess)
+    if not OrderGuessing.check_new_pin_length(new_pin_length):
+        return HttpResponse(f"No statistics built for PIN codes of {ciphers_to_literal[new_pin_length]} symbols.\n"
+                            f"Would you like to build new statistics for this length ?", status=422)
+
     filename = image.name
 
     image = get_image(image)
@@ -81,11 +90,11 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
 
     dst = model_wrapper.segment_phone(image_cropped)
     if dst is None:
-        return HttpResponse(status=422)
+        return HttpResponse(f"The image {filename} does not appear to contain a phone", status=422)
 
     boxes = model_wrapper.detect_smudge(dst, filename)
     ciphers, b64_img = guess_ciphers(dst, boxes, ref)
-    most_likely_pin_codes = guess_order(ciphers, cipher_guessing_algorithms)
+    most_likely_pin_codes = OrderGuessing.process(ciphers, cipher_guessing_algorithms, cipher_guess)
 
     pw = PyplotWrapper(True)
     pw.plot_image(image)
