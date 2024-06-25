@@ -1,5 +1,5 @@
 import "../styles/Home.css"
-import PhoneReferences from "../components/PhoneReferences";
+import PhoneReferences from "../components/Input/PhoneReferences";
 import ResultComponent from "../components/Result.jsx"
 import Navbar from "../components/Navbar.jsx"
 import {useState} from "react";

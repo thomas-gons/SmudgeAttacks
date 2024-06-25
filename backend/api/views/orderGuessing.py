@@ -16,7 +16,7 @@ class OrderGuessing:
     __instance = None
 
     @staticmethod
-    def get_order_guessing_instance(pin_length=6, should_update=False) -> str:
+    def get_order_guessing_instance(pin_length=6, should_update=False) -> 'OrderGuessing':
         if OrderGuessing.__instance is None:
             OrderGuessing.__instance = OrderGuessing()
 
@@ -138,6 +138,7 @@ class OrderGuessing:
         return more_probable_pins
 
 
-# use reflection to get the name of the computation methods that start with "compute_prob_by"
-algorithms = [method for method in dir(OrderGuessing)
-              if callable(getattr(OrderGuessing, method)) and method.startswith("compute_prob_by")]
+# use reflection to get the name of the computation methods that start with the following prefix
+prefix = "compute_prob_by_"
+algorithms = [method.removeprefix(prefix) for method in dir(OrderGuessing)
+              if callable(getattr(OrderGuessing, method)) and method.startswith(prefix)]
