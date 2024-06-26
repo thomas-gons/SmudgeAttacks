@@ -26,10 +26,14 @@ const thumbInner: React.CSSProperties = {
 
 const imgStyle = {display: 'block', width: 'auto', height: '100%'};
 
+interface ThumbProps {
+  smudgedPhoneImages: File[];
 
-const Thumb = (
-  smudgedPhoneImages: File[]
-) => {
+}
+
+const Thumb: React.FC<ThumbProps> = ({
+  smudgedPhoneImages
+}) => {
 
   const thumbs = smudgedPhoneImages.map(image => (
     <div style={thumb} key={image.name}>

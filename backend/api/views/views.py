@@ -80,13 +80,13 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
     image = request.FILES.get("image")
     cipher_guess = request.POST.get('cipher_guess').split(',')
     cipher_guessing_algorithms = request.POST.get('order_guessing_algorithms').split(',')
+    cipher_correction = request.POST.get('cipher_correction') == 'auto'
 
     new_pin_length = len(cipher_guess)
     if not OrderGuessing.check_new_pin_length(new_pin_length):
         return HttpResponse(f"No statistics built for PIN codes of {ciphers_to_literal[new_pin_length]} symbols.\n"
                             f"Would you like to build new statistics for this length ?", status=422)
 
-    only_compute_order = request.POST.get('only_compute_order') == 'true'
     filename = image.name
 
     image = get_image(image)
@@ -99,19 +99,20 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
     bboxes = model_wrapper.detect_smudge(dst, filename)
     ciphers, refs_bboxes, b64_img = guess_ciphers(dst, bboxes, ref)
 
-    image_pil = Image.fromarray(dst.astype('uint8'), 'RGB')
-    buffer = BytesIO()
-    image_pil.save(buffer, format='PNG')
-    buffer.seek(0)
-    image = buffer.read()
+    if len(ciphers) != new_pin_length and not cipher_correction:
+        image_pil = Image.fromarray(dst.astype('uint8'), 'RGB')
+        buffer = BytesIO()
+        image_pil.save(buffer, format='PNG')
+        buffer.seek(0)
+        image = buffer.read()
 
-    b64_img = "data:image/png;base64," + base64.b64encode(image).decode('utf-8')
-    if len(ciphers) != new_pin_length:
+        b64_img = "data:image/png;base64," + base64.b64encode(image).decode('utf-8')
         response = {
             'reference': ref,
             'image': b64_img,
             'ref_bboxes': refs_bboxes,
             'inferred_bboxes': [bb.xywh() for bb in bboxes],
+            'inferred_ciphers': [int(cipher[0]) for cipher in ciphers],
             'msg': 'The number of detected ciphers does not match the expected PIN length'
         }
         return HttpResponse(json.dumps(response), content_type="application/json", status=206)

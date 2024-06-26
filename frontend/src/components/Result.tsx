@@ -3,7 +3,7 @@ import MobileStepper from '@mui/material/MobileStepper';
 import {Badge, Button, Grid, Grow, Paper} from '@mui/material';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
-import React, {useState} from "react";
+import * as React from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
 import {enqueueSnackbar} from "notistack";
 import {Result} from "../pages/Home";
@@ -19,13 +19,21 @@ const Item = styled(Paper)(({theme}) => ({
 }));
 
 
-const ResultComponent = (
+interface ResultComponentProps {
   result: Result,
   setResult: React.Dispatch<React.SetStateAction<Result>>,
-) => {
+
+}
+
+
+const ResultComponent: React.FC<ResultComponentProps> = ({
+  result,
+  setResult,
+}) => {
+
   const theme = useTheme();
-  const [activeStep, setActiveStep] = useState<number>(0)
-  const [showSecondPart, setShowSecondPart] = useState<boolean>(false);
+  const [activeStep, setActiveStep] = React.useState<number>(0)
+  const [showSecondPart, setShowSecondPart] = React.useState<boolean>(false);
 
   const displayStatus = (message, severity, ...options) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
@@ -101,7 +109,7 @@ const ResultComponent = (
     const secondPart = pin_codes.slice(splitIndex);
 
     pin_codes_grid = (
-      <div style={{position: 'relative'}}>
+      <div style={{marginLeft: '20px'}}>
         <p style={{color: theme.palette.text.secondary}}>PIN codes</p>
         <Paper elevation={1} style={{padding: '16px'}}>
           <Grid container spacing={1.5} direction={"column"}>
@@ -148,8 +156,10 @@ const ResultComponent = (
       position="static"
       activeStep={activeStep}
       sx={{
-        maxWidth: 400, flexGrow: 1, marginTop: '20px',
-        textAlign: 'center', color: theme.palette.text.secondary,
+        maxWidth: '240px',
+        marginTop: '20px',
+        textAlign: 'center',
+        color: theme.palette.text.secondary,
       }}
       nextButton={
         <Button
@@ -191,38 +201,29 @@ const ResultComponent = (
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'space-evenly',
-      marginBottom: '40px'
     }}>
-      <div id={"result"}>
+      <div id={"result"} style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
         <div id={"result-metadata"} style={{color: theme.palette.text.secondary}}>
           {reference} <br/>
           {result.current_source} <br/>
         </div>
-        <div style={{position: 'relative', display: 'inline-block'}}>
-          <div
+        <div>
+          <img src={image} alt="no result" style={{objectFit: 'fill', width: '480px', borderRadius: '5px'}} />
+          <Badge
+            badgeContent={<CancelIcon style={{fontSize: 30, color: "#f00"}}/>}
+            color="error"
+            overlap="circular"
+            sx={{
+              "& .MuiBadge-badge": {
+                borderRadius: '50%',
+                maxWidth: 0,
+                backgroundColor: "  #fff",
+                border: 5,
+                borderColor: "#f00",
+              },
+            }}
             onClick={removeResult}
-          >
-            <Badge
-              badgeContent={<CancelIcon style={{fontSize: 30, color: "#f00"}}/>}
-              color="error"
-              overlap="circular"
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              sx={{
-                "& .MuiBadge-badge": {
-                  borderRadius: '50%',
-                  maxWidth: 0,
-                  backgroundColor: "  #fff",
-                  border: 5,
-                  borderColor: "#f00"
-                }
-              }}
-              style={{position: 'absolute', top: 0, right: 0,}}
-            ></Badge>
-          </div>
-          <img src={image} alt="no result" style={{objectFit: 'fill', width: '350px', borderRadius: '5px'}}/>
+          />
         </div>
         {stepper}
       </div>

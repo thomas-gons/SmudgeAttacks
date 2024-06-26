@@ -37,12 +37,18 @@ export const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-// PhoneReferences Component
-const PhoneReferences = (
+interface PhoneReferencesProps {
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>,
   result: Result,
   setResult: React.Dispatch<React.SetStateAction<Result>>
-) => {
+}
+
+// PhoneReferences Component
+const PhoneReferences: React.FC<PhoneReferencesProps> = ({
+  setInProcessResult,
+  result,
+  setResult
+}) => {
 
   const [pinLength, setPinLength] = useState(6);
   const [inputValue, setInputValue] = useState('');
@@ -50,6 +56,7 @@ const PhoneReferences = (
   const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<File[]>([]);
   const [orderGuessingAlgorithms, setOrderGuessingAlgorithms] = useState<{ [algorithm: string]: boolean }>({});
   const [cipherGuess, setCipherGuess] = useState<string[]>(Array(6))
+  const [cipherCorrection, setCipherCorrection] = useState<'manual' | 'auto'>('manual')
   const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
@@ -90,11 +97,12 @@ const PhoneReferences = (
       formData.append('image', file);
       formData.append('order_guessing_algorithms', oga.toString())
       formData.append('cipher_guess', cipherGuess.toString())
+      formData.append('cipher_correction', cipherCorrection)
       setIsProcessing(true)
       api.post("api/find-pin-code", formData)
         .then(response => {
+          setIsProcessing(false)
           if (response.status === 201) {
-            setIsProcessing(false)
             const filename = response.data['filename'];
             if (result.data[filename]) {
               return
@@ -111,7 +119,7 @@ const PhoneReferences = (
               current_source: filename,
               nb_step: prevRes.nb_step + 1
             }));
-
+            console.log(result)
             setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           } else if (response.status === 206) {
@@ -119,7 +127,8 @@ const PhoneReferences = (
               reference: inputValue,
               image: response.data['image'],
               refs_bboxes: response.data['ref_bboxes'],
-              inferred_bboxes: response.data['inferred_bboxes']
+              inferred_bboxes: response.data['inferred_bboxes'],
+              inferred_ciphers: response.data['inferred_ciphers']
             }
             console.log(newInProcessResult)
             setInProcessResult(newInProcessResult)
@@ -213,19 +222,28 @@ const PhoneReferences = (
 
   return (
     <div>
-      {CodeLengthSlider(setPinLength, setOnlyComputeOrder, cipherGuess, setCipherGuess)}
-      {ReferenceHandler(inputValue, setInputValue, referenceLabel, setReferenceLabel, setOrderGuessingAlgorithms)}
-      {SmudgedPhoneInput(smudgedPhoneImages, setSmudgedPhoneImages, setOnlyComputeOrder)}
-
-      {ConfigAndGuess(
-        orderGuessingAlgorithms, setOrderGuessingAlgorithms,
-        cipherGuess, setCipherGuess,
-        pinLength
-      )}
+      <CodeLengthSlider
+        setPinLength={setPinLength} setOnlyComputeOrder={setOnlyComputeOrder}
+        cipherGuess={cipherGuess} setCipherGuess={setCipherGuess}
+      />
+      <ReferenceHandler
+        inputValue={inputValue} setInputValue={setInputValue}
+        referenceLabel={referenceLabel} setReferenceLabel={setReferenceLabel}
+        setOrderGuessingAlgorithms={setOrderGuessingAlgorithms}
+      />
+      <SmudgedPhoneInput
+        smudgedPhoneImages={smudgedPhoneImages} setSmudgedPhoneImages={setSmudgedPhoneImages}
+        setOnlyComputeOrder={setOnlyComputeOrder}
+      />
+      <ConfigAndGuess
+        orderGuessingAlgorithms={orderGuessingAlgorithms} setOrderGuessingAlgorithms={setOrderGuessingAlgorithms}
+        cipherGuess={cipherGuess} setCipherGuess={setCipherGuess}
+        setCipherCorrection={setCipherCorrection} pinLength={pinLength}
+      />
       <div style={{display: 'flex', alignItems: 'center'}}>
         <Button
           variant="contained"
-          onClick={(!onlyComputeOrder) ? handleUploadSmudgeTraces: handleUpdatePINCode}
+          onClick={(!onlyComputeOrder) ? handleUploadSmudgeTraces : handleUpdatePINCode}
           startIcon={<CloudUploadIcon/>}
         >
           Process Smudge Traces

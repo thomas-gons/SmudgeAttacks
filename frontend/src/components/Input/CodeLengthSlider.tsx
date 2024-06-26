@@ -2,12 +2,19 @@ import {Slider} from "@mui/material";
 import * as React from "react";
 
 
-const CodeLengthSlider = (
+interface CodeLengthSliderProps {
   setPinLength: React.Dispatch<React.SetStateAction<number>>,
   setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
   cipherGuess: string[],
   setCipherGuess: React.Dispatch<React.SetStateAction<string[]>>
-) => {
+}
+
+const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
+  setPinLength,
+  setOnlyComputeOrder,
+  cipherGuess,
+  setCipherGuess
+}) => {
 
   const slider = (
     <div style={{display: 'flex', flexDirection: 'row'}}>

@@ -14,9 +14,6 @@ export default defineConfig({
       'ts': 'application/javascript',
       'tsx': 'application/javascript',
     },
-    watch: {
-      usePolling: true
-    }
   },
   optimizeDeps: {
     exclude: ['js-big-decimal']

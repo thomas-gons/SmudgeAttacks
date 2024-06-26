@@ -5,11 +5,18 @@ import {VisuallyHiddenInput, displayStatus} from "./PhoneReferences";
 import Thumb from "./Thumb";
 
 
-const SmudgedPhoneInput = (
-  smudgedPhoneImages: File[],
-  setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>,
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
-) => {
+interface SmudgedPhoneInputProps {
+  smudgedPhoneImages: File[];
+  setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>;
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>;
+
+}
+
+const SmudgedPhoneInput: React.FC<SmudgedPhoneInputProps> = ({
+  smudgedPhoneImages,
+  setSmudgedPhoneImages,
+  setOnlyComputeOrder
+}) => {
 
   return (
     <section className="container">
@@ -40,7 +47,7 @@ const SmudgedPhoneInput = (
           }}
         />
       </Button>
-      {Thumb(smudgedPhoneImages)}
+      <Thumb smudgedPhoneImages={smudgedPhoneImages}/>
     </section>
   )
 }

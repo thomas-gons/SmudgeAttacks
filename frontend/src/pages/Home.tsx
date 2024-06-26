@@ -32,6 +32,7 @@ export interface InProcessResult {
   image: string,
   refs_bboxes: number[][],
   inferred_bboxes: number[][],
+  inferred_ciphers: number[]
 }
 
 function Home() {
@@ -40,7 +41,8 @@ function Home() {
     reference: "",
     image: "",
     refs_bboxes: [],
-    inferred_bboxes: []
+    inferred_bboxes: [],
+    inferred_ciphers: []
   })
 
   const [result, setResult] = useState<Result>({
@@ -93,11 +95,11 @@ function Home() {
       <Navbar/>
       <div id="main">
         <div id={"left"}>
-          {PhoneReferences(setInProcessResult, result, setResult)}
+          <PhoneReferences setInProcessResult={setInProcessResult} result={result} setResult={setResult} />
         </div>
         <div id={"right"}>
-          {CodeUserValidation(inProcessResult)}
-          {ResultComponent(result, setResult)}
+          <CodeUserValidation inProcessResult={inProcessResult} />
+          <ResultComponent result={result} setResult={setResult} />
         </div>
       </div>
 

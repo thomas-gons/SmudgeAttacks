@@ -28,16 +28,23 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 
-const ReferenceHandler = (
-  inputValue: string,
-  setInputValue: React.Dispatch<React.SetStateAction<string>>,
+interface ReferenceHandlerProps {
+  inputValue: string;
+  setInputValue: React.Dispatch<React.SetStateAction<string>>;
+  referenceLabel: ReferenceLabel;
+  setReferenceLabel: React.Dispatch<React.SetStateAction<ReferenceLabel>>;
+  setOrderGuessingAlgorithms: React.Dispatch<React.SetStateAction<{[algorithm: string]: boolean}>>;
 
-  referenceLabel: ReferenceLabel,
-  setReferenceLabel: React.Dispatch<React.SetStateAction<ReferenceLabel>>,
+}
 
-  setOrderGuessingAlgorithms: React.Dispatch<React.SetStateAction<{[algorithm: string]: boolean}>>,
 
-) => {
+const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
+  inputValue,
+  setInputValue,
+  referenceLabel,
+  setReferenceLabel,
+  setOrderGuessingAlgorithms
+}) => {
 
   const [phoneReferences,
          setPhoneReferences] = useState<{ [ref: string]: number }>({});
