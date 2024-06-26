@@ -6,7 +6,8 @@ import Thumb from "./Thumb";
 
 
 const SmudgedPhoneInput = (
-  smudgedPhoneImages: File[], setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>,
+  smudgedPhoneImages: File[],
+  setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>,
   setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
 

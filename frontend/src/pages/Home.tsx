@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar.jsx"
 import {useState} from "react";
 import {MaterialDesignContent, SnackbarProvider} from "notistack";
 import {styled} from "@mui/material/styles";
+import CodeUserValidation from "../components/CodeUserValidation";
 
 
 export interface DisplayState {
@@ -22,15 +23,30 @@ export interface Data {
 
 export interface Result {
   data: { [source: string]: Data },
-  currentSource: string,
-  nbStep: number
+  current_source: string,
+  nb_step: number
+}
+
+export interface InProcessResult {
+  reference: string,
+  image: string,
+  refs_bboxes: number[][],
+  inferred_bboxes: number[][],
 }
 
 function Home() {
+
+  const [inProcessResult, setInProcessResult] = useState<InProcessResult>({
+    reference: "",
+    image: "",
+    refs_bboxes: [],
+    inferred_bboxes: []
+  })
+
   const [result, setResult] = useState<Result>({
     data: {},
-    currentSource: '',
-    nbStep: 0
+    current_source: '',
+    nb_step: 0
   })
 
   const [displayState, setDisplayState] = useState<DisplayState>({
@@ -77,15 +93,11 @@ function Home() {
       <Navbar/>
       <div id="main">
         <div id={"left"}>
-          {PhoneReferences(result, setResult)}
+          {PhoneReferences(setInProcessResult, result, setResult)}
         </div>
         <div id={"right"}>
-          <ResultComponent
-            result={result}
-            setResult={setResult}
-            displayState={displayState}
-            setDisplayState={setDisplayState}
-          />
+          {CodeUserValidation(inProcessResult)}
+          {ResultComponent(result, setResult)}
         </div>
       </div>
 

@@ -50,6 +50,10 @@ class BoundingBox:
     def __dict__(self) -> Dict[str, int]:
         return {'x': self.x, 'y': self.y, 'w': self.w, 'h': self.h}
 
+    def xywh(self) -> List[int]:
+        # top left corner and width and height of the bounding box
+        return [int(self.x), int(self.y), int(self.w), int(self.h)]
+
     def xyxy(self) -> List[int]:
         # top left and bottom right corners of the bounding box
         return [self.x, self.y, self.x + self.w, self.y + self.h]

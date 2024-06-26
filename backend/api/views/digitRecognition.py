@@ -184,7 +184,11 @@ class DigitRecognition:
         return pin_bboxes, b64_image
 
 
-def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[List[Tuple[int, float]], str]:
+def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[
+        List[Tuple[int, float]],
+        List[BoundingBox],
+        str
+]:
     """
     "Guess" the ciphers used for the PIN code by taking the best IOU score
     between the references and the inferred bounding boxes for each one
@@ -213,4 +217,4 @@ def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[List[
     # TODO: handle less or more than six ciphers retrieved
     # --> if less use markov chain to guess more probable missing ciphers
     # --> if more then compute order for all sequence of 6 ciphers keep cipher with IOU > 0.9 in place
-    return pin, b64_image
+    return pin, [ref.xywh() for ref in refs_bboxes], b64_image

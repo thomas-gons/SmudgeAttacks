@@ -72,9 +72,6 @@ const ConfigAndGuess = (
                   onClick={() => {
                     const resetCipherGuess = cipherGuess.map(() => '');
                     setCipherGuess(resetCipherGuess);
-                    document.querySelectorAll('.cipher-guess').forEach((input) => {
-                      input.value = '';
-                    })
                     const resetOrderGuessingAlgorithms = Object.keys(orderGuessingAlgorithms).reduce((acc, key) => {
                       acc[key] = true;
                       return acc;

@@ -2,7 +2,7 @@ import {useState} from 'react';
 import api from "../../api.js";
 import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import {Data} from '../../pages/Home.js'
+import {Data, InProcessResult} from '../../pages/Home.js'
 import {closeSnackbar, enqueueSnackbar} from "notistack";
 import Badge from '@mui/material/Badge';
 import CheckIcon from '@mui/icons-material/Check';
@@ -38,7 +38,11 @@ export const VisuallyHiddenInput = styled('input')({
 });
 
 // PhoneReferences Component
-const PhoneReferences = (result: Result, setResult: React.Dispatch<React.SetStateAction<Result>>) => {
+const PhoneReferences = (
+  setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>,
+  result: Result,
+  setResult: React.Dispatch<React.SetStateAction<Result>>
+) => {
 
   const [pinLength, setPinLength] = useState(6);
   const [inputValue, setInputValue] = useState('');
@@ -104,12 +108,21 @@ const PhoneReferences = (result: Result, setResult: React.Dispatch<React.SetStat
             };
             setResult(prevRes => ({
               data: {...prevRes.data, ...{[filename]: data}},
-              currentSource: filename,
-              nbStep: prevRes.nbStep + 1
+              current_source: filename,
+              nb_step: prevRes.nb_step + 1
             }));
 
             setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
+          } else if (response.status === 206) {
+            const newInProcessResult: InProcessResult = {
+              reference: inputValue,
+              image: response.data['image'],
+              refs_bboxes: response.data['ref_bboxes'],
+              inferred_bboxes: response.data['inferred_bboxes']
+            }
+            console.log(newInProcessResult)
+            setInProcessResult(newInProcessResult)
           }
         })
         .catch(err => {
@@ -134,7 +147,7 @@ const PhoneReferences = (result: Result, setResult: React.Dispatch<React.SetStat
     const oga = Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm])
 
     const formData = new FormData();
-    formData.append("sequence", result.data[result.currentSource].sequence)
+    formData.append("sequence", result.data[result.current_source].sequence)
     formData.append('order_guessing_algorithms', oga.toString())
     formData.append('cipher_guess', cipherGuess.toString())
     setIsProcessing(true)
@@ -142,12 +155,23 @@ const PhoneReferences = (result: Result, setResult: React.Dispatch<React.SetStat
     api.post("api/update-pin-code", formData)
       .then(response => {
         setIsProcessing(false)
+        if (response && response.status === 206) {
+          const newInProcessResult: InProcessResult = {
+            reference: inputValue,
+            image: response.data['image'],
+            refs_bboxes: response.data['refs_bboxes'],
+            inferred_bboxes: response.data['inferred_bboxes']
+          }
+          console.log(newInProcessResult)
+          setInProcessResult(newInProcessResult)
+        }
         const prevResult = result
-        prevResult.data[result.currentSource].pin_codes = response.data['pin_codes']
+        prevResult.data[result.current_source].pin_codes = response.data['pin_codes']
         setResult(prevResult)
       })
       .catch(err => {
         setIsProcessing(false)
+
         if (err.response && err.response.status === 422) {
           displayStatus(err.response.data, 'error');
         }

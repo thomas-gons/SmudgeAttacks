@@ -3,9 +3,10 @@ import * as React from "react";
 
 
 const CodeLengthSlider = (
-        setPinLength,
-        setOnlyComputeOrder,
-        cipherGuess, setCipherGuess
+  setPinLength: React.Dispatch<React.SetStateAction<number>>,
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
+  cipherGuess: string[],
+  setCipherGuess: React.Dispatch<React.SetStateAction<string[]>>
 ) => {
 
   const slider = (

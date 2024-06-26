@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8000', // Assure-toi que cela correspond à ton serveur Django
+      '/api': 'http://127.0.0.1:8000',
     },
     mimeTypes: {
       'js': 'application/javascript',
@@ -14,6 +14,9 @@ export default defineConfig({
       'ts': 'application/javascript',
       'tsx': 'application/javascript',
     },
+    watch: {
+      usePolling: true
+    }
   },
   optimizeDeps: {
     exclude: ['js-big-decimal']

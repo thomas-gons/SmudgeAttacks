@@ -1,3 +1,5 @@
+import base64
+
 from django.http import HttpResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
@@ -7,6 +9,7 @@ from api.serializers import UserSerializer, ReferenceSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from django.core.handlers.wsgi import WSGIRequest
+from PIL import Image
 
 import json
 
@@ -93,8 +96,26 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
     if dst is None:
         return HttpResponse(f"The image {filename} does not appear to contain a phone", status=422)
 
-    boxes = model_wrapper.detect_smudge(dst, filename)
-    ciphers, b64_img = guess_ciphers(dst, boxes, ref)
+    bboxes = model_wrapper.detect_smudge(dst, filename)
+    ciphers, refs_bboxes, b64_img = guess_ciphers(dst, bboxes, ref)
+
+    image_pil = Image.fromarray(dst.astype('uint8'), 'RGB')
+    buffer = BytesIO()
+    image_pil.save(buffer, format='PNG')
+    buffer.seek(0)
+    image = buffer.read()
+
+    b64_img = "data:image/png;base64," + base64.b64encode(image).decode('utf-8')
+    if len(ciphers) != new_pin_length:
+        response = {
+            'reference': ref,
+            'image': b64_img,
+            'ref_bboxes': refs_bboxes,
+            'inferred_bboxes': [bb.xywh() for bb in bboxes],
+            'msg': 'The number of detected ciphers does not match the expected PIN length'
+        }
+        return HttpResponse(json.dumps(response), content_type="application/json", status=206)
+
     most_likely_pin_codes = OrderGuessing.process(ciphers, cipher_guessing_algorithms, cipher_guess)
 
     pw = PyplotWrapper(True)

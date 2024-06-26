@@ -18,12 +18,15 @@
     "@mui/material": "^5.15.20",
     "@react-buddy/ide-toolbox": "^2.4.0",
     "axios": "^1.7.2",
+    "canvas": "^2.11.2",
     "jwt-decode": "^4.0.0",
+    "konva": "^9.3.12",
     "next": "^14.2.4",
     "notistack": "^3.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.3",
+    "react-konva": "^18.2.10",
     "react-router-dom": "^6.24.0"
   },
   "devDependencies": {

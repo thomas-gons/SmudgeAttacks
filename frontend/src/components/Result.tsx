@@ -3,9 +3,10 @@ import MobileStepper from '@mui/material/MobileStepper';
 import {Badge, Button, Grid, Grow, Paper} from '@mui/material';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
-import {useState} from "react";
+import React, {useState} from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
 import {enqueueSnackbar} from "notistack";
+import {Result} from "../pages/Home";
 
 
 
@@ -18,10 +19,13 @@ const Item = styled(Paper)(({theme}) => ({
 }));
 
 
-const ResultComponent = ({result, setResult, displayState, setDisplayState}) => {
+const ResultComponent = (
+  result: Result,
+  setResult: React.Dispatch<React.SetStateAction<Result>>,
+) => {
   const theme = useTheme();
-  const [activeStep, setActiveStep] = useState<Number>(0)
-  const [showSecondPart, setShowSecondPart] = useState<Boolean>(false);
+  const [activeStep, setActiveStep] = useState<number>(0)
+  const [showSecondPart, setShowSecondPart] = useState<boolean>(false);
 
   const displayStatus = (message, severity, ...options) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
@@ -29,57 +33,57 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
 
   const handleNext = () => {
     const keys = Object.keys(result.data);
-    const currentIndex = keys.indexOf(result.currentSource);
+    const currentIndex = keys.indexOf(result.current_source);
     const nextIndex = (currentIndex + 1) % keys.length;
     setActiveStep(nextIndex)
     setResult(prevResult => ({
       data: prevResult.data,
-      currentSource: keys[nextIndex],
-      nbStep: prevResult.nbStep
+      current_source: keys[nextIndex],
+      nb_step: prevResult.nb_step
     }))
     setShowSecondPart(false)
   };
 
   const handleBack = () => {
     const keys = Object.keys(result.data);
-    const currentIndex = keys.indexOf(result.currentSource);
+    const currentIndex = keys.indexOf(result.current_source);
     const prevIndex = (currentIndex - 1 + keys.length) % keys.length;
     setActiveStep(prevIndex)
     setResult(prevResult => ({
       data: prevResult.data,
-      currentSource: keys[prevIndex],
-      nbStep: prevResult.nbStep
+      current_source: keys[prevIndex],
+      nb_step: prevResult.nb_step
     }))
     setShowSecondPart(false)
   };
 
   const removeResult = () => {
-    delete result.data[result.currentSource]
-    const prevCurrentSource = result.currentSource
+    delete result.data[result.current_source]
+    const prevcurrent_source = result.current_source
     const keys = Object.keys(result.data)
     if (keys.length > 0) {
       setResult(prevResult => ({
         data: prevResult.data,
-        currentSource: keys[0],
-        nbStep: prevResult.nbStep - 1
+        current_source: keys[0],
+        nb_step: prevResult.nb_step - 1
       }));
     } else {
       setResult({
         data: {},
-        currentSource: '',
-        nbStep: 0
+        current_source: '',
+        nb_step: 0
       })
     }
     setActiveStep(0);
     setShowSecondPart(false)
-    displayStatus("Result from " + prevCurrentSource + "has been deleted", "success")
+    displayStatus("Result from " + prevcurrent_source + "has been deleted", "success")
   }
 
-  if (result.currentSource === "" || result.data == {}) {
+  if (result.current_source === "" || result.data == {}) {
     return;
   }
 
-  const res = result.data[result.currentSource]
+  const res = result.data[result.current_source]
   const reference = res["reference"]
   let sequence = res["sequence"]
   const image = res["image"]
@@ -140,7 +144,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
   const stepper = (
     <MobileStepper
       variant="text"
-      steps={result.nbStep}
+      steps={result.nb_step}
       position="static"
       activeStep={activeStep}
       sx={{
@@ -151,7 +155,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
         <Button
           size="small"
           onClick={handleNext}
-          disabled={activeStep === result.nbStep}
+          disabled={activeStep === result.nb_step}
           sx={{marginLeft: 1, paddingTop: 1, fontSize: 14}}
         >
           Next
@@ -192,7 +196,7 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
       <div id={"result"}>
         <div id={"result-metadata"} style={{color: theme.palette.text.secondary}}>
           {reference} <br/>
-          {result.currentSource} <br/>
+          {result.current_source} <br/>
         </div>
         <div style={{position: 'relative', display: 'inline-block'}}>
           <div
