@@ -77,12 +77,7 @@ function Home() {
       <Navbar/>
       <div id="main">
         <div id={"left"}>
-          <PhoneReferences
-            result={result}
-            setResult={setResult}
-            displayState={displayState}
-            setDisplayState={setDisplayState}
-          />
+          {PhoneReferences(result, setResult)}
         </div>
         <div id={"right"}>
           <ResultComponent

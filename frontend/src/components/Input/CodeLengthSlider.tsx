@@ -1,10 +1,10 @@
-import {useState} from "react";
 import {Slider} from "@mui/material";
 import * as React from "react";
 
 
 const CodeLengthSlider = (
-        pinLength, setPinLength,
+        setPinLength,
+        setOnlyComputeOrder,
         cipherGuess, setCipherGuess
 ) => {
 
@@ -24,6 +24,7 @@ const CodeLengthSlider = (
           newCipherGuess[i] = cipherGuess[i];
         }
         setCipherGuess(newCipherGuess)
+        setOnlyComputeOrder(false)
       }}
       valueLabelDisplay="on"
       shiftStep={1}

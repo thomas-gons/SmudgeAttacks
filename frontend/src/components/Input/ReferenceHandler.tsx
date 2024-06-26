@@ -17,7 +17,6 @@ type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
 // Styled Components
 const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
   clipPath: 'inset(50%)',
   height: 1,
   overflow: 'hidden',
@@ -30,24 +29,33 @@ const VisuallyHiddenInput = styled('input')({
 
 
 const ReferenceHandler = (
-  orderGuessingAlgorithms, setOrderGuessingAlgorithms,
-  inputValue, setInputValue,
+  inputValue: string,
+  setInputValue: React.Dispatch<React.SetStateAction<string>>,
+
+  referenceLabel: ReferenceLabel,
+  setReferenceLabel: React.Dispatch<React.SetStateAction<ReferenceLabel>>,
+
+  setOrderGuessingAlgorithms: React.Dispatch<React.SetStateAction<{[algorithm: string]: boolean}>>,
 
 ) => {
 
-  const [phoneReferences, setPhoneReferences] = useState<{ [ref: string]: number }>({});
-  const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
+  const [phoneReferences,
+         setPhoneReferences] = useState<{ [ref: string]: number }>({});
+
 
 
   const loadReferences = () => {
     api.get('/api/phone-references')
       .then(response => {
         const refs = response.data['refs']
-        setPhoneReferences(refs.reduce((acc, ref) => {
-          acc[ref.ref] = ref.id
+        setPhoneReferences(refs.reduce(
+          (acc: { [key: string]: number }, ref: {ref: string, id: number}) => {
+
+            acc[ref.ref] = ref.id
           return acc;
         }, {} as { [key: string]: number }));
-        const newOrderGuessingAlgorithms = response.data['order_guessing_algorithms'].reduce((acc, algorithm) => {
+        const newOrderGuessingAlgorithms = response.data['order_guessing_algorithms'].reduce(
+          (acc: {string : boolean}, algorithm: string) => {
           acc[algorithm] = true
           return acc
         }, {});
@@ -63,7 +71,7 @@ const ReferenceHandler = (
   }, []);
 
 
-  const handleAddReference = (e) => {
+  const handleAddReference = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!inputValue) {
       displayStatus('Please enter a reference text.', 'error');
       return;
@@ -99,7 +107,7 @@ const ReferenceHandler = (
       });
   };
 
-  const handleDeleteReference = (e) => {
+  const handleDeleteReference = () => {
     api.delete("/api/phone-references/" + phoneReferences[inputValue])
       .then(response => {
         if (response.status === 201) {
@@ -121,7 +129,7 @@ const ReferenceHandler = (
       sx={{width: 300, height: 45}}
       renderInput={(params) => <TextField {...params} label="Phone References"/>}
       inputValue={inputValue}
-      onInputChange={(event, newInputValue) => {
+      onInputChange={(_, newInputValue) => {
         setInputValue(newInputValue);
         setReferenceLabel(Object.keys(phoneReferences).some(x => x === newInputValue) ? 'known' :
           newInputValue !== '' ? 'unknown' : 'empty');
@@ -150,7 +158,7 @@ const ReferenceHandler = (
         sx={{marginLeft: '20px', minWidth: 'fit-content'}}
         onClick={() => {
           displayStatus('Do you really want to delete ' + inputValue, 'info',
-            (key) => (
+            () => (
               <Button
                 variant={"contained"}
                 style={{
@@ -160,7 +168,7 @@ const ReferenceHandler = (
                 <Badge
                   badgeContent={<CheckIcon/>}
                   onClick={() => {
-                    handleDeleteReference(inputValue)
+                    handleDeleteReference()
                   }}
                 >
                 </Badge>

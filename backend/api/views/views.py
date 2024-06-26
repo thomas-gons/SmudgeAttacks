@@ -75,7 +75,7 @@ model_wrapper = ModelWrapper()
 def detect_phone(request: WSGIRequest) -> HttpResponse:
     ref = request.POST.get('ref')
     image = request.FILES.get("image")
-    cipher_guess = request.POST.get('cipherGuess').split(',')
+    cipher_guess = request.POST.get('cipher_guess').split(',')
     cipher_guessing_algorithms = request.POST.get('order_guessing_algorithms').split(',')
 
     new_pin_length = len(cipher_guess)
@@ -83,6 +83,7 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
         return HttpResponse(f"No statistics built for PIN codes of {ciphers_to_literal[new_pin_length]} symbols.\n"
                             f"Would you like to build new statistics for this length ?", status=422)
 
+    only_compute_order = request.POST.get('only_compute_order') == 'true'
     filename = image.name
 
     image = get_image(image)
@@ -107,3 +108,29 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
         'reference': ref
     }
     return HttpResponse(json.dumps(response), content_type="application/json", status=201)
+
+
+@csrf_exempt
+def update_pin_code(request: WSGIRequest) -> HttpResponse:
+    sequence = request.POST.get('sequence').split('-')
+    formatted_sequence = [(cipher, 1.0) for cipher in sequence]
+    cipher_guess = request.POST.get('cipher_guess').split(',')
+    cipher_guessing_algorithms = request.POST.get('order_guessing_algorithms').split(',')
+    most_likely_pin_codes = OrderGuessing.process(formatted_sequence, cipher_guessing_algorithms, cipher_guess)
+    response = {
+        'pin_codes': most_likely_pin_codes
+    }
+    return HttpResponse(json.dumps(response), content_type="application/json", status=201)
+
+
+@csrf_exempt
+def build_statistics(request: WSGIRequest) -> HttpResponse:
+    pin_length = int(request.POST.get('new_pin_length'))
+    file_content = request.FILES.get('reference_file')
+    try:
+        OrderGuessing.generate_stats(pin_length, file_content)
+    except ValueError as e:
+        return HttpResponse(e.args[0], status=422)
+
+    return HttpResponse(f"Statistics for PIN code of {ciphers_to_literal[pin_length]} "
+                        f"symbols has been correctly generated.", status=201)

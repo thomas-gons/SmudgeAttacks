@@ -12,19 +12,21 @@ import CodeLengthSlider from "./CodeLengthSlider";
 import {CircularProgress, Grow} from "@mui/material";
 import * as React from "react";
 import ConfigAndGuess from "./ConfigAndGuess";
+import {Result} from "../../pages/Home";
 import ReferenceHandler from "./ReferenceHandler";
 import {styled} from "@mui/material/styles";
 import SmudgedPhoneInput from "./SmudgedPhoneInput";
-import Thumb from "./Thumb";
 
 
-export const displayStatus = (message, severity, action = null, options = {}) => {
+type ReferenceLabel = 'empty' | 'known' | 'unknown'
+
+
+export const displayStatus = (message: string, severity: string, action = null, options = {}) => {
   enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
 }
 
 
 export const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
   clipPath: 'inset(50%)',
   height: 1,
   overflow: 'hidden',
@@ -36,39 +38,25 @@ export const VisuallyHiddenInput = styled('input')({
 });
 
 // PhoneReferences Component
-const PhoneReferences = ({result, setResult}) => {
+const PhoneReferences = (result: Result, setResult: React.Dispatch<React.SetStateAction<Result>>) => {
 
-  const [
-    smudgedPhoneImages,
-    setSmudgedPhoneImages] = useState<File[]>([]);
+  const [pinLength, setPinLength] = useState(6);
+  const [inputValue, setInputValue] = useState('');
+  const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
+  const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<File[]>([]);
+  const [orderGuessingAlgorithms, setOrderGuessingAlgorithms] = useState<{ [algorithm: string]: boolean }>({});
+  const [cipherGuess, setCipherGuess] = useState<string[]>(Array(6))
+  const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
+  const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
-  const [
-    orderGuessingAlgorithms,
-    setOrderGuessingAlgorithms] = useState<{ [algorithm: string]: boolean }>({});
-
-  const [
-    cipherGuess,
-    setCipherGuess] = useState<string[]>(Array(6))
-
-  const [
-    inputValue,
-    setInputValue] = useState('');
-
-  const [
-    pinLength,
-    setPinLength] = useState(6);
-
-    const [
-    isProcessing,
-    setIsProcessing] = useState<Boolean>(false)
-
-  const handleBuildNewStatistics = (e) => {
+  const handleBuildNewStatistics = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formData = new FormData();
-    formData.append("new_pin_code_length", pinLength.toString())
+    formData.append("new_pin_length", pinLength.toString())
+    formData.append("reference_file", e.target.files[0])
     api.post("api/build-statistics", formData)
       .then(response => {
         if (response.status === 201) {
-          displayStatus(response.data, 'You can now retry the processing', 'success');
+          displayStatus(response.data, 'success');
         }
       })
       .catch(err => {
@@ -90,18 +78,23 @@ const PhoneReferences = ({result, setResult}) => {
       return;
     }
 
+    const oga = Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm])
+
     smudgedPhoneImages.forEach(file => {
       const formData = new FormData();
       formData.append("ref", inputValue);
       formData.append('image', file);
-      formData.append("order_guessing_algorithms", Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm]))
-      formData.append('cipherGuess', cipherGuess);
+      formData.append('order_guessing_algorithms', oga.toString())
+      formData.append('cipher_guess', cipherGuess.toString())
       setIsProcessing(true)
       api.post("api/find-pin-code", formData)
         .then(response => {
           if (response.status === 201) {
             setIsProcessing(false)
             const filename = response.data['filename'];
+            if (result.data[filename]) {
+              return
+            }
 
             const data: Data = {
               reference: response.data['reference'],
@@ -114,63 +107,101 @@ const PhoneReferences = ({result, setResult}) => {
               currentSource: filename,
               nbStep: prevRes.nbStep + 1
             }));
+
+            setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           }
         })
         .catch(err => {
+
+          setIsProcessing(false)
           if (err.response && err.response.status === 422) {
             if (err.response.data.startsWith('No statistics')) {
               displayStatus(err.response.data, 'warning',
-                (key) => (
-                  <Button
-                    variant={"contained"}
-                    style={{
-                      justifyContent: 'space-between',
-                      backgroundColor: 'transparent', boxShadow: 'none'
-                    }}>
-                    <Badge
-                      badgeContent={<CheckIcon/>}
-                    >
-                      <input
-                        type="file"
-                        accept=".txt"
-                        onChange={() => {
-                          console.log('TODO')
-                        }}
-                      />
-                    </Badge>
-                    <Badge
-                      badgeContent={<CancelIcon/>}
-                      onClick={() => {
-                        closeSnackbar()
-                      }}
-                    >
-                    </Badge>
-                  </Button>
+                () => (
+                  addPINLengthRef
                 ), {autoHideDuration: null, style: {whiteSpace: 'pre-line'}})
             } else {
               displayStatus(err.response.data, 'warning');
             }
           }
-          setIsProcessing(false)
         });
     });
   };
 
+  const handleUpdatePINCode = () => {
+
+    const oga = Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm])
+
+    const formData = new FormData();
+    formData.append("sequence", result.data[result.currentSource].sequence)
+    formData.append('order_guessing_algorithms', oga.toString())
+    formData.append('cipher_guess', cipherGuess.toString())
+    setIsProcessing(true)
+
+    api.post("api/update-pin-code", formData)
+      .then(response => {
+        setIsProcessing(false)
+        const prevResult = result
+        prevResult.data[result.currentSource].pin_codes = response.data['pin_codes']
+        setResult(prevResult)
+      })
+      .catch(err => {
+        setIsProcessing(false)
+        if (err.response && err.response.status === 422) {
+          displayStatus(err.response.data, 'error');
+        }
+      });
+  }
+
+  const addPINLengthRef = (
+    <Button
+      variant={"contained"}
+      style={{
+        justifyContent: 'space-between',
+        backgroundColor: 'transparent', boxShadow: 'none'
+      }}
+    >
+      <Badge
+        badgeContent={<CheckIcon/>}
+        onClick={() => {
+          document.getElementById("addPINLengthRefInput").click()
+        }}
+      >
+        <VisuallyHiddenInput
+          type="file"
+          accept=".txt"
+          id="addPINLengthRefInput"
+          onChange={(e) => {
+            handleBuildNewStatistics(e)
+          }}
+        />
+      </Badge>
+      <Badge
+        badgeContent={<CancelIcon/>}
+        onClick={() => {
+          closeSnackbar()
+        }}
+      >
+      </Badge>
+    </Button>
+  )
+
   return (
     <div>
-      {CodeLengthSlider(pinLength, setPinLength, cipherGuess, setCipherGuess)}
-      {ReferenceHandler(orderGuessingAlgorithms, setOrderGuessingAlgorithms, inputValue, setInputValue)}
-      {SmudgedPhoneInput(smudgedPhoneImages, setSmudgedPhoneImages)}
+      {CodeLengthSlider(setPinLength, setOnlyComputeOrder, cipherGuess, setCipherGuess)}
+      {ReferenceHandler(inputValue, setInputValue, referenceLabel, setReferenceLabel, setOrderGuessingAlgorithms)}
+      {SmudgedPhoneInput(smudgedPhoneImages, setSmudgedPhoneImages, setOnlyComputeOrder)}
+
       {ConfigAndGuess(
         orderGuessingAlgorithms, setOrderGuessingAlgorithms,
         cipherGuess, setCipherGuess,
-        pinLength, setPinLength
+        pinLength
       )}
       <div style={{display: 'flex', alignItems: 'center'}}>
         <Button
           variant="contained"
-          onClick={handleUploadSmudgeTraces}
+          onClick={(!onlyComputeOrder) ? handleUploadSmudgeTraces: handleUpdatePINCode}
           startIcon={<CloudUploadIcon/>}
         >
           Process Smudge Traces

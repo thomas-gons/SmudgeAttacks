@@ -16,7 +16,7 @@ class OrderGuessing:
     __instance = None
 
     @staticmethod
-    def get_order_guessing_instance(pin_length=6, should_update=False) -> 'OrderGuessing':
+    def get_order_guessing_instance(pin_length=6, should_update=True) -> 'OrderGuessing':
         if OrderGuessing.__instance is None:
             OrderGuessing.__instance = OrderGuessing()
 
@@ -38,7 +38,7 @@ class OrderGuessing:
 
     @staticmethod
     def check_new_pin_length(pin_length: int) -> bool:
-        prev_pin_length = OrderGuessing.get_order_guessing_instance().pin_length
+        prev_pin_length = OrderGuessing.get_order_guessing_instance(should_update=False).pin_length
         if pin_length == prev_pin_length:
             return True
 
@@ -53,9 +53,12 @@ class OrderGuessing:
         return True
 
     @staticmethod
-    def generate_stats(_pin_length: int, _filename: str) -> None:
-        sb = StatsBuilder(_filename, _pin_length)
-        sb.save_stats()
+    def generate_stats(_pin_length: int, _file_buffer: BinaryIO) -> None:
+        try:
+            sb = StatsBuilder(file_buffer=_file_buffer, expected_pin_len=_pin_length)
+            sb.save_stats()
+        except ValueError as e:
+            raise e
 
     def update_stats(self, _pin_length: int) -> None:
         pin_length_lit = ciphers_to_literal[_pin_length]

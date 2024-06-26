@@ -3,11 +3,14 @@ import TuneIcon from "@mui/icons-material/Tune";
 import {Checkbox, FormControlLabel, FormGroup, Grid, Input} from "@mui/material";
 import * as React from "react";
 import {useState} from "react";
+import Button from "@mui/material/Button";
 
 const ConfigAndGuess = (
-  orderGuessingAlgorithms, setOrderGuessingAlgorithms,
-  cipherGuess, setCipherGuess,
-  pinLength, setPinLength
+  orderGuessingAlgorithms: {[algorithm: string]: boolean},
+  setOrderGuessingAlgorithms: React.Dispatch<React.SetStateAction<{[algorithm: string]: boolean}>>,
+  cipherGuess: string[],
+  setCipherGuess: React.Dispatch<React.SetStateAction<string[]>>,
+  pinLength: number,
 ) => {
 
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
@@ -29,11 +32,11 @@ const ConfigAndGuess = (
 
       {isConfigOpen && <FormGroup sx={{marginTop: '10px'}}>
         <Grid container spacing={0}>
-        {Object.keys(orderGuessingAlgorithms).map((algorithm, _) => (
-          <Grid item xs={6}>
+        {Object.keys(orderGuessingAlgorithms).map((algorithm, index) => (
+          <Grid item xs={6} key={index}>
             <FormControlLabel control={
               <Checkbox
-                defaultChecked
+                checked={orderGuessingAlgorithms[algorithm]}
                 onChange={(e) => {
                   setOrderGuessingAlgorithms(prevState => {
                     return {...prevState, [algorithm]: e.target.checked };
@@ -45,11 +48,13 @@ const ConfigAndGuess = (
           </Grid>
         ))}
         </Grid>
-        <div style={{display: 'flex', flexDirection:'column', marginTop: '20px'}}>
+        <div style={{position: 'relative', display: 'flex', flexDirection:'column', marginTop: '20px'}}>
           Cipher guesses
-          <div>
-          {Array(pinLength).fill('').map((_, index) => (
+          <div id={"cipher-guesses-container"}>
+          {Array(pinLength).fill('').map((_: never, index: number) => (
             <Input
+              key={index}
+              value={cipherGuess[index] || ''}
               onChange={(e) => {
                 const lastChar = e.target.value.slice(-1)
                 e.target.value = /[0-9]/.test(lastChar) ? lastChar: '';
@@ -62,6 +67,24 @@ const ConfigAndGuess = (
                 margin: '0 5px'
             }}/>
           ))}
+            <div style={{position:'absolute', right: 0, top: '25px'}}>
+                <Button
+                  onClick={() => {
+                    const resetCipherGuess = cipherGuess.map(() => '');
+                    setCipherGuess(resetCipherGuess);
+                    document.querySelectorAll('.cipher-guess').forEach((input) => {
+                      input.value = '';
+                    })
+                    const resetOrderGuessingAlgorithms = Object.keys(orderGuessingAlgorithms).reduce((acc, key) => {
+                      acc[key] = true;
+                      return acc;
+                    }, {} as {[algorithm: string]: boolean});
+                    setOrderGuessingAlgorithms(resetOrderGuessingAlgorithms);
+                  }}
+                >
+                  Reset
+                </Button>
+            </div>
           </div>
         </div>
       </FormGroup>}

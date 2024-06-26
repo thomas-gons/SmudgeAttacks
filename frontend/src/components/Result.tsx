@@ -193,7 +193,6 @@ const ResultComponent = ({result, setResult, displayState, setDisplayState}) => 
         <div id={"result-metadata"} style={{color: theme.palette.text.secondary}}>
           {reference} <br/>
           {result.currentSource} <br/>
-          <div style={{marginTop: 5}}>{sequence}</div>
         </div>
         <div style={{position: 'relative', display: 'inline-block'}}>
           <div

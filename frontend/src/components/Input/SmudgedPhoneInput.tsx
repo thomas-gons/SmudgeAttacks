@@ -6,7 +6,8 @@ import Thumb from "./Thumb";
 
 
 const SmudgedPhoneInput = (
-  smudgedPhoneImages, setSmudgedPhoneImages,
+  smudgedPhoneImages: File[], setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>,
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
 
   return (
@@ -26,16 +27,15 @@ const SmudgedPhoneInput = (
             event: React.ChangeEvent<HTMLInputElement>
           ) => {
             const nbFileLimit = 5
-            let acceptedFiles: File[] = Array.from(event.target.files);
+            let acceptedFiles: File[] = Array.from(event.target.files || [])
             if (acceptedFiles.length > nbFileLimit) {
               displayStatus("You can only select up to " + nbFileLimit + " files.", "error")
-              console.log(acceptedFiles)
               acceptedFiles = acceptedFiles.slice(0, nbFileLimit)
-              console.log(acceptedFiles)
             }
             setSmudgedPhoneImages(acceptedFiles.map(file => Object.assign(file, {
               preview: URL.createObjectURL(file),
             })));
+            setOnlyComputeOrder(false)
           }}
         />
       </Button>
