@@ -31,7 +31,7 @@ const LightTooltip = styled(({className, ...props}: TooltipProps) => (
 ))(({theme}) => ({
   [`& .${tooltipClasses.tooltip}`]: {
     backgroundColor: theme.palette.common.white,
-    color: 'rgba(0, 0, 0, 0.87)',
+    color: 'rgba(0, 0, 0, 0.6)',
     boxShadow: theme.shadows[1],
     fontSize: 14,
   },
@@ -164,7 +164,8 @@ const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
     <div
       style={{
         width: '100%', marginTop: '10px', marginBottom: '20px', padding: (isConfigOpen ? '15px' : '0px'),
-        border: (isConfigOpen ? '1px solid #ddd' : '0'), borderRadius: 5, maxWidth: 'fit-content'
+        border: (isConfigOpen ? '1px solid #ddd' : '0'), borderRadius: 5, maxWidth: 'fit-content',
+        color: 'rgba(0, 0, 0, 0.8)'
       }}
     >
       <div

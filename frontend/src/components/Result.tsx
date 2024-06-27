@@ -1,21 +1,33 @@
 import {styled, useTheme} from '@mui/material/styles';
 import MobileStepper from '@mui/material/MobileStepper';
-import {Badge, Button, Grid, Grow, Paper} from '@mui/material';
+import {Badge, Button, Grid, Grow, Paper, Tooltip, tooltipClasses, TooltipProps} from '@mui/material';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import * as React from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
 import {enqueueSnackbar} from "notistack";
 import {Result} from "../pages/Home";
+import InfoIcon from "@mui/icons-material/Info";
 
 
 
-const Item = styled(Paper)(({theme}) => ({
+const GridItem = styled(Paper)(({theme}) => ({
   backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
   ...theme.typography.body2,
   padding: theme.spacing(1),
   textAlign: 'center',
-  color: theme.palette.text.secondary,
+  color: theme.palette.text.secondary
+}));
+
+const LightTooltip = styled(({className, ...props}: TooltipProps) => (
+  <Tooltip {...props} classes={{popper: className}}/>
+))(({theme}) => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: theme.palette.common.white,
+    boxShadow: theme.shadows[1],
+    color: 'rgba(0, 0, 0, 0.6)',
+    fontSize: 14,
+  },
 }));
 
 
@@ -33,10 +45,13 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
 
   const theme = useTheme();
   const [activeStep, setActiveStep] = React.useState<number>(0)
-  const [showSecondPart, setShowSecondPart] = React.useState<boolean>(false);
 
   const displayStatus = (message, severity, ...options) => {
     enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
+  }
+
+  const helperOffset = (x: number, y: number) => {
+    return {modifiers: [{name: 'offset', options: {offset: [x, y]}}]}
   }
 
   const handleNext = () => {
@@ -49,7 +64,6 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       current_source: keys[nextIndex],
       nb_step: prevResult.nb_step
     }))
-    setShowSecondPart(false)
   };
 
   const handleBack = () => {
@@ -62,7 +76,6 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       current_source: keys[prevIndex],
       nb_step: prevResult.nb_step
     }))
-    setShowSecondPart(false)
   };
 
   const removeResult = () => {
@@ -83,7 +96,6 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       })
     }
     setActiveStep(0);
-    setShowSecondPart(false)
     displayStatus("Result from " + prevcurrent_source + "has been deleted", "success")
   }
 
@@ -93,58 +105,55 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
 
   const res = result.data[result.current_source]
   const reference = res["reference"]
-  let sequence = res["sequence"]
   const image = res["image"]
   const pin_codes = res["pin_codes"]
 
-  let pin_codes_grid = (
-    <div style={{color: theme.palette.text.secondary}}>No PIN codes</div>
-  )
-
-  if (pin_codes.length > 0) {
-    sequence = 'Sequence: ' + res['sequence']
+  let pin_codes_grid = () => {
+    if (pin_codes.length === 0) {
+      return (
+        <div style={{color: theme.palette.text.secondary}}>No PIN codes</div>
+      )
+    }
 
     const splitIndex = Math.max(Math.ceil(pin_codes.length / 2), 10)
     const firstPart = pin_codes.slice(0, splitIndex);
     const secondPart = pin_codes.slice(splitIndex);
 
-    pin_codes_grid = (
-      <div style={{marginLeft: '20px'}}>
-        <p style={{color: theme.palette.text.secondary}}>PIN codes</p>
+    return (
+      <div style={{position: 'relative', marginLeft: '125px'}}>
+        <div style={{color: theme.palette.text.secondary, marginBottom: '10px'}}>
+          PIN codes
+          <LightTooltip
+            title={"Only the PIN codes ranks are displayed because probabilities are too small to be readable."}
+            placement={"top"}
+            slotProps={{popper: helperOffset(0, 0)}}
+          >
+            <InfoIcon sx={{
+              marginLeft: '3px',
+              marginBottom: '-1px',
+              width: '20px',
+              color: 'rgb(21, 101, 192)'
+            }}/>
+          </LightTooltip>
+        </div>
         <Paper elevation={1} style={{padding: '16px'}}>
-          <Grid container spacing={1.5} direction={"column"}>
-            {(showSecondPart ? secondPart : firstPart).map((item, index) => (
-              <Grid item xs={1} key={index}>
-                <Item style={{padding: '5px 25px'}}>{showSecondPart ? index + splitIndex + 1 : index + 1}. {item}</Item>
-              </Grid>
-            ))}
+         <Grid container sx={{width: '220px'}}>
+             <Grid container xs={6}  direction="column">
+              {firstPart.map((item, index) => (
+                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
+                  {index + 1}. {item}
+                </GridItem>
+              ))}
+            </Grid>
+             <Grid container xs={6} direction="column" >
+              {secondPart.map((item, index) => (
+                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
+                  {index + splitIndex + 1}. {item}
+                </GridItem>
+              ))}
+            </Grid>
           </Grid>
         </Paper>
-        <Button
-          style={{
-            position: "absolute", top: "55px", right: "-10px", padding: "2px 10px 1px 10px",
-            borderRadius: "20px",
-            minWidth: 'fit-content',
-            boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2),0px 4px 5px 0px rgba(0,0,0,0.14),0px 1px 10px 0px rgba(0,0,0,0.12)',
-            fontWeight: '500',
-            fontSize: '16px',
-            color: "white", backgroundColor: "rgb(25, 118, 210)"
-          }}
-          color="primary"
-          onClick={() => setShowSecondPart(!showSecondPart)}
-        >
-          <Badge
-            badgeContent={showSecondPart ? '-' : '+'}
-            color="primary"
-            overlap="circular"
-            anchorOrigin={{
-              vertical: 'top',
-              horizontal: 'left',
-            }}
-            sx={{"& .MuiBadge-badge": {fontSize: 18, height: 25, width: 25, borderRadius: '20px'}}}
-          >
-          </Badge>
-        </Button>
       </div>
     )
   }
@@ -200,15 +209,16 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       display: 'flex',
       flexDirection: 'row',
       justifyContent: 'center',
-      alignItems: 'space-evenly',
+      alignItems: 'center',
+      marginBottom: '20px'
     }}>
       <div id={"result"} style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
         <div id={"result-metadata"} style={{color: theme.palette.text.secondary}}>
           {reference} <br/>
           {result.current_source} <br/>
         </div>
-        <div>
-          <img src={image} alt="no result" style={{objectFit: 'fill', width: '480px', borderRadius: '5px'}} />
+        <div style={{position: 'relative'}}>
+          <img src={image} alt="no result" style={{objectFit: 'fill', width: '450px', borderRadius: '5px'}} />
           <Badge
             badgeContent={<CancelIcon style={{fontSize: 30, color: "#f00"}}/>}
             color="error"
@@ -221,14 +231,16 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
                 border: 5,
                 borderColor: "#f00",
               },
+              position: 'absolute',
+              top: 0,
             }}
             onClick={removeResult}
           />
         </div>
         {stepper}
       </div>
-      <div style={{height: '477px', width: '170px', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
-        {pin_codes_grid}
+      <div style={{height: '480x', width: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '65px'}}>
+        {pin_codes_grid()}
       </div>
     </div>
   );

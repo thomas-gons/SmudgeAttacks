@@ -60,6 +60,25 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
   const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
+  const resetInProcessResult = () => {
+    setInProcessResult({
+      reference: "",
+      image: "",
+      refs_bboxes: [],
+      inferred_bboxes: [],
+      inferred_ciphers: []
+    })
+  }
+
+  const resetResult = () => {
+    setResult({
+      data: {},
+      current_source: '',
+      nb_step: 0
+    })
+  }
+
+
   const handleBuildNewStatistics = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formData = new FormData();
     formData.append("new_pin_length", pinLength.toString())
@@ -108,6 +127,8 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               return
             }
 
+            resetInProcessResult()
+
             const data: Data = {
               reference: response.data['reference'],
               sequence: response.data['sequence'],
@@ -119,10 +140,11 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               current_source: filename,
               nb_step: prevRes.nb_step + 1
             }));
-            console.log(result)
             setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           } else if (response.status === 206) {
+
+            resetResult()
             const newInProcessResult: InProcessResult = {
               reference: inputValue,
               image: response.data['image'],
@@ -130,7 +152,6 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               inferred_bboxes: response.data['inferred_bboxes'],
               inferred_ciphers: response.data['inferred_ciphers']
             }
-            console.log(newInProcessResult)
             setInProcessResult(newInProcessResult)
           }
         })
@@ -240,7 +261,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
         cipherGuess={cipherGuess} setCipherGuess={setCipherGuess}
         setCipherCorrection={setCipherCorrection} pinLength={pinLength}
       />
-      <div style={{display: 'flex', alignItems: 'center'}}>
+      <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
         <Button
           variant="contained"
           onClick={(!onlyComputeOrder) ? handleUploadSmudgeTraces : handleUpdatePINCode}
