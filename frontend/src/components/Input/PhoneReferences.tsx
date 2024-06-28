@@ -1,29 +1,26 @@
 import {useState} from 'react';
-import api from "../../api.js";
+import api from "../../api";
 import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import {Data, InProcessResult} from '../../pages/Home.js'
-import {closeSnackbar, enqueueSnackbar} from "notistack";
+import {Config, Data, InProcessResult} from '../../pages/Home'
+import {closeSnackbar} from "notistack";
 import Badge from '@mui/material/Badge';
 import CheckIcon from '@mui/icons-material/Check';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CodeLengthSlider from "./CodeLengthSlider";
 
-import {CircularProgress, Grow} from "@mui/material";
+import {CircularProgress} from "@mui/material";
 import * as React from "react";
 import ConfigAndGuess from "./ConfigAndGuess";
 import {Result} from "../../pages/Home";
 import ReferenceHandler from "./ReferenceHandler";
 import {styled} from "@mui/material/styles";
 import SmudgedPhoneInput from "./SmudgedPhoneInput";
+import {displayStatus} from '../Status'
 
+import {AxiosResponse, AxiosError} from "axios";
 
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
-
-
-export const displayStatus = (message: string, severity: string, action = null, options = {}) => {
-  enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
-}
 
 
 export const VisuallyHiddenInput = styled('input')({
@@ -38,6 +35,8 @@ export const VisuallyHiddenInput = styled('input')({
 });
 
 interface PhoneReferencesProps {
+  config: Config,
+  setConfig: React.Dispatch<React.SetStateAction<Config>>,
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>,
   result: Result,
   setResult: React.Dispatch<React.SetStateAction<Result>>
@@ -45,52 +44,33 @@ interface PhoneReferencesProps {
 
 // PhoneReferences Component
 const PhoneReferences: React.FC<PhoneReferencesProps> = ({
+  config,
+  setConfig,
   setInProcessResult,
   result,
   setResult
 }) => {
 
-  const [pinLength, setPinLength] = useState(6);
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
   const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<File[]>([]);
-  const [orderGuessingAlgorithms, setOrderGuessingAlgorithms] = useState<{ [algorithm: string]: boolean }>({});
-  const [cipherGuess, setCipherGuess] = useState<string[]>(Array(6))
-  const [cipherCorrection, setCipherCorrection] = useState<'manual' | 'auto'>('manual')
   const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
-  const resetInProcessResult = () => {
-    setInProcessResult({
-      reference: "",
-      image: "",
-      refs_bboxes: [],
-      inferred_bboxes: [],
-      inferred_ciphers: [],
-      expected_pin_length: pinLength
-    })
-  }
-
-  const resetResult = () => {
-    setResult({
-      data: {},
-      current_source: '',
-      nb_step: 0
-    })
-  }
-
-
-  const handleBuildNewStatistics = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBuildNewStatistics = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files === null) {
+      return
+    }
     const formData = new FormData();
-    formData.append("new_pin_length", pinLength.toString())
-    formData.append("reference_file", e.target.files[0])
+    formData.append("new_pin_length", config.pinLength.toString())
+    formData.append("reference_file", event.target.files[0])
     api.post("api/build-statistics", formData)
-      .then(response => {
+      .then((response: AxiosResponse) => {
         if (response.status === 201) {
           displayStatus(response.data, 'success');
         }
       })
-      .catch(err => {
+      .catch((err: AxiosError) => {
         if (err.response && err.response.status === 422) {
           displayStatus(err.response.data, 'error');
         }
@@ -109,18 +89,16 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       return;
     }
 
-    const oga = Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm])
-
     smudgedPhoneImages.forEach(file => {
       const formData = new FormData();
       formData.append("ref", inputValue);
       formData.append('image', file);
-      formData.append('order_guessing_algorithms', oga.toString())
-      formData.append('cipher_guess', cipherGuess.toString())
-      formData.append('cipher_correction', cipherCorrection)
+      formData.append('order_guessing_algorithms', JSON.stringify(config.getSelectedOrderGuessingAlgorithms()))
+      formData.append('cipher_guess', JSON.stringify(config.cipher_guess))
+      formData.append('cipher_correction', config.inference_correction)
       setIsProcessing(true)
       api.post("api/find-pin-code", formData)
-        .then(response => {
+        .then((response: AxiosResponse) => {
           setIsProcessing(false)
           if (response.status === 201) {
             const filename = response.data['filename'];
@@ -128,7 +106,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               return
             }
 
-            resetInProcessResult()
+            setInProcessResult(new InProcessResult())
 
             const data: Data = {
               reference: response.data['reference'],
@@ -145,27 +123,31 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           } else if (response.status === 206) {
 
-            resetResult()
+            setResult(new Result())
             const newInProcessResult: InProcessResult = {
               reference: inputValue,
+              filename: response.data['filename'],
               image: response.data['image'],
               refs_bboxes: response.data['ref_bboxes'],
               inferred_bboxes: response.data['inferred_bboxes'],
               inferred_ciphers: response.data['inferred_ciphers'],
-              expected_pin_length: pinLength
+              expected_pin_length: config.pinLength
             }
             setInProcessResult(newInProcessResult)
           }
         })
-        .catch(err => {
+        .catch((err: AxiosError) => {
 
           setIsProcessing(false)
-          if (err.response && err.response.status === 422) {
+          if (err.response && err.response.status === 422 && typeof err.response.data === 'string') {
             if (err.response.data.startsWith('No statistics')) {
-              displayStatus(err.response.data, 'warning',
-                () => (
-                  addPINLengthRef
-                ), {autoHideDuration: null, style: {whiteSpace: 'pre-line'}})
+
+              displayStatus(
+                err.response.data,
+                'warning',
+                addPINLengthRef,
+                {autoHideDuration: null, style: {whiteSpace: 'pre-line'}}
+              )
             } else {
               displayStatus(err.response.data, 'warning');
             }
@@ -176,34 +158,31 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
   const handleUpdatePINCode = () => {
 
-    const oga = Object.keys(orderGuessingAlgorithms).filter(algorithm => orderGuessingAlgorithms[algorithm])
-
     const formData = new FormData();
     formData.append("sequence", result.data[result.current_source].sequence)
-    formData.append('order_guessing_algorithms', oga.toString())
-    formData.append('cipher_guess', cipherGuess.toString())
+    formData.append('order_guessing_algorithms', JSON.stringify(config.getSelectedOrderGuessingAlgorithms()))
+    formData.append('cipher_guess', JSON.stringify(config.cipher_guess))
     setIsProcessing(true)
 
     api.post("api/update-pin-code", formData)
-      .then(response => {
+      .then((response: AxiosResponse) => {
         setIsProcessing(false)
         if (response && response.status === 206) {
-          const newInProcessResult: InProcessResult = {
-            reference: inputValue,
-            image: response.data['image'],
-            refs_bboxes: response.data['refs_bboxes'],
-            inferred_bboxes: response.data['inferred_bboxes'],
-            inferred_ciphers: response.data['inferred_ciphers'],
-            expected_pin_length: pinLength
-          }
-          console.log(newInProcessResult)
+          const newInProcessResult = new InProcessResult(
+            inputValue,
+            response.data['image'],
+            response.data['refs_bboxes'],
+            response.data['inferred_bboxes'],
+            response.data['inferred_ciphers'],
+        )
+
           setInProcessResult(newInProcessResult)
         }
         const prevResult = result
         prevResult.data[result.current_source].pin_codes = response.data['pin_codes']
         setResult(prevResult)
       })
-      .catch(err => {
+      .catch((err: AxiosError) => {
         setIsProcessing(false)
 
         if (err.response && err.response.status === 422) {
@@ -223,7 +202,8 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       <Badge
         badgeContent={<CheckIcon/>}
         onClick={() => {
-          document.getElementById("addPINLengthRefInput").click()
+          const input = document.getElementById("addPINLengthRefInput")
+          if (input) input.click()
         }}
       >
         <VisuallyHiddenInput
@@ -247,24 +227,17 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
   return (
     <div>
-      <CodeLengthSlider
-        setPinLength={setPinLength} setOnlyComputeOrder={setOnlyComputeOrder}
-        cipherGuess={cipherGuess} setCipherGuess={setCipherGuess}
-      />
+      <CodeLengthSlider config={config} setConfig={setConfig} setOnlyComputeOrder={setOnlyComputeOrder}/>
       <ReferenceHandler
         inputValue={inputValue} setInputValue={setInputValue}
         referenceLabel={referenceLabel} setReferenceLabel={setReferenceLabel}
-        setOrderGuessingAlgorithms={setOrderGuessingAlgorithms}
+        config={config} setConfig={setConfig}
       />
       <SmudgedPhoneInput
         smudgedPhoneImages={smudgedPhoneImages} setSmudgedPhoneImages={setSmudgedPhoneImages}
         setOnlyComputeOrder={setOnlyComputeOrder}
       />
-      <ConfigAndGuess
-        orderGuessingAlgorithms={orderGuessingAlgorithms} setOrderGuessingAlgorithms={setOrderGuessingAlgorithms}
-        cipherGuess={cipherGuess} setCipherGuess={setCipherGuess}
-        setCipherCorrection={setCipherCorrection} pinLength={pinLength}
-      />
+      <ConfigAndGuess config={config} setConfig={setConfig}/>
       <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
         <Button
           variant="contained"

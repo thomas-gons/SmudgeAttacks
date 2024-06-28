@@ -1,15 +1,14 @@
 import {Stage, Layer, Image, Rect, Circle, Group, Text} from "react-konva";
-import {InProcessResult, DisplayState, Result} from "../pages/Home";
+import {InProcessResult, Result} from "../pages/Home";
 import React from "react";
 import Button from "@mui/material/Button";
-import {closeSnackbar, enqueueSnackbar} from "notistack";
-import {Grow, Tooltip, tooltipClasses, TooltipProps} from "@mui/material";
 import Badge from "@mui/material/Badge";
 import CheckIcon from "@mui/icons-material/Check";
 import CancelIcon from "@mui/icons-material/Cancel";
-import api from "../api";
-import {styled} from "@mui/material/styles";
-import InfoIcon from "@mui/icons-material/Info";
+import api from "../api.js";
+import {displayStatus, closeStatus} from "./Status";
+import {AxiosError, AxiosResponse} from "axios";
+import LightTooltipHelper from "./LightTooltipHelper";
 
 
 const canvasDim = [450, 450]
@@ -17,7 +16,7 @@ const inputWidth = [640, 640];
 
 interface LayoutData {
   label: string;
-  help: HTMLDivElement;
+  help: React.ReactNode;
   selected_color: string;
   unselected_color: string;
   alpha: number;
@@ -30,22 +29,6 @@ interface CodeUserValidationProps {
   setResult: React.Dispatch<React.SetStateAction<Result>>;
 }
 
-export const displayStatus = (message: string, severity: string, action = null, options = {}) => {
-  enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, action, ...options})
-}
-
-const LightTooltip = styled(({className, ...props}: TooltipProps) => (
-  <Tooltip {...props} classes={{popper: className}}/>
-))(({theme}) => ({
-  [`& .${tooltipClasses.tooltip}`]: {
-    backgroundColor: theme.palette.common.white,
-    color: 'rgba(0, 0, 0, 0.6)',
-    boxShadow: theme.shadows[1],
-    fontSize: 14,
-    maxWidth: '200px',
-  },
-}));
-
 const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
  inProcessResult,
  setInProcessResult,
@@ -57,7 +40,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   }
 
   const [isSwapped, setIsSwapped] = React.useState<boolean>(false);
-  const [rmBboxes, setRmBboxes] = React.useState<boolean[]>([]);
+  const [removedBboxes, setRemovedBboxes] = React.useState<number[]>([]);
   const [addedBboxes, setAddedBboxes] = React.useState<number[]>(
     inProcessResult.refs_bboxes.map((_, index) => (inProcessResult.inferred_ciphers.includes(index) ? 1 : 0))
   );
@@ -70,7 +53,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
     } else if (checkNewCipherCount < inProcessResult.expected_pin_length) {
       displayStatus(
         'The number of ciphers is less than the expected pin length',
-        'info', () => (automaticMode), {autoHideDuration: null, style: {whiteSpace: 'pre-line'}});
+        'info', automaticMode, {autoHideDuration: null, style: {whiteSpace: 'pre-line'}});
       return;
     }
     handler()
@@ -78,22 +61,28 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
 
   const handler = () => {
     // reconstruct the sequence
-    const new_ciphers = addedBboxes.flatMap((item, index) => {
-      return Array(item).fill(index); // Utilise index + 1 pour correspondre à l'exemple donné
+    const new_ciphers = addedBboxes.flatMap((item: number, index: number) => {
+      return Array(item).fill(index);
     });
+
+    const remaining_inferred_bboxes = inProcessResult.inferred_bboxes.filter((_, index) => !removedBboxes.includes(index));
 
     const formData = new FormData();
     formData.append('new_ciphers', JSON.stringify(new_ciphers));
-    console.log(new_ciphers)
+    formData.append('remaining_inferred_bboxes', JSON.stringify(remaining_inferred_bboxes));
+    formData.append('reference_bboxes', JSON.stringify(inProcessResult.refs_bboxes));
+    formData.append('image', inProcessResult.image);
+    formData.append('reference', inProcessResult.reference);
 
-    api.post("/api/find-pin-code-from-manual", formData)
-      .then((response) => {
+    api.post("api/find-pin-code-from-manual", formData)
+      .then((response: AxiosResponse) => {
         if (response.status === 200) {
           console.log(response.data)
         }
       })
-      .catch((err) => {
-        // displayStatus(err.response.data, 'error')
+      .catch((err: AxiosError) => {
+        if (err.response != undefined)
+          displayStatus(err.response.data, 'error')
       })
   }
 
@@ -108,7 +97,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       <Badge
         badgeContent={<CheckIcon/>}
         onClick={() => {
-          closeSnackbar()
+          closeStatus()
           handler()
         }}
       >
@@ -116,7 +105,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       <Badge
         badgeContent={<CancelIcon/>}
         onClick={() => {
-          closeSnackbar()
+          closeStatus()
         }}
       >
       </Badge>
@@ -130,42 +119,6 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
 
   const rgbToRgba = (rgb: string, alpha: number) => `rgba(${rgb.slice(4, -1)}, ${alpha})`;
 
-
-  const draw_bboxes = (
-    bboxes: number[][],
-    selected_bbox: boolean[] | number[],
-    setSelected_bbox: React.Dispatch<React.SetStateAction<boolean[] | number[]>>,
-    layout_data: LayoutData
-  ) => {
-
-    const rgbToRgba = (rgb: string, alpha: number) => `rgba(${rgb.slice(4, -1)}, ${alpha})`;
-
-    const selected_color = rgbToRgba(layout_data.selected_color, layout_data.alpha);
-    const unselected_color = rgbToRgba(layout_data.unselected_color, layout_data.alpha);
-
-    return (
-      bboxes.map((bbox, index) => (
-        <Rect
-          key={index} // Ensure each Rect has a unique key
-          x={bbox[0] * ratio[0]}
-          y={bbox[1] * ratio[1]}
-          width={bbox[2] * ratio[0]}
-          height={bbox[3] * ratio[1]}
-          stroke={selected_bbox.includes(index) ? selected_color : unselected_color}
-          strokeWidth={2}
-          onClick={() => {
-            if (!isSwapped) return;
-
-            if (selected_bbox.includes(index)) {
-              setSelected_bbox(selected_bbox.filter((item) => item !== index));
-            } else {
-              setSelected_bbox([...selected_bbox, index]);
-            }
-          }}
-        />
-      ))
-    )
-  }
 
   const alphaHiddenLike: number = 0.25
   const ref_layout_data: LayoutData = {
@@ -215,7 +168,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
     const unselected_color = rgbToRgba(ref_layout_data.unselected_color, ref_layout_data.alpha);
 
     return (
-      inProcessResult.refs_bboxes.map((bbox, index) => (
+      inProcessResult.refs_bboxes.map((bbox: number[], index: number) => (
         <Rect
           key={index} // Ensure each Rect has a unique key
           x={bbox[0] * ratio[0]}
@@ -227,13 +180,13 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
           onClick={(e) => {
             switch (e.evt.button) {
               case 0:
-                setAddedBboxes(addedBboxes.map((item, i) => (i === index && item < 6 ? item + 1 : item)));
+                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index && item < inProcessResult.expected_pin_length ? item + 1 : item)));
                 break;
               case 1:
-                setAddedBboxes(addedBboxes.map((item, i) => (i === index ? 0 : item)));
+                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index ? 0 : item)));
                 break;
               case 2:
-                setAddedBboxes(addedBboxes.map((item, i) => (i === index && item > 0 ? item - 1 : item)));
+                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index && item > 0 ? item - 1 : item)));
                 break;
               default:
                 break;
@@ -244,17 +197,40 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
     )
   }
 
-  const inferred_bboxes = draw_bboxes(
-    inProcessResult.inferred_bboxes,
-    rmBboxes, setRmBboxes,
-    inferred_layout_data
-  )
+  const inferred_bboxes = () => {
+    const rgbToRgba = (rgb: string, alpha: number) => `rgba(${rgb.slice(4, -1)}, ${alpha})`;
 
+    const selected_color = rgbToRgba(inferred_layout_data.selected_color, inferred_layout_data.alpha);
+    const unselected_color = rgbToRgba(inferred_layout_data.unselected_color, inferred_layout_data.alpha);
+
+    return (
+      inProcessResult.inferred_bboxes.map((bbox: number[], index: number) => (
+        <Rect
+          key={index}
+          x={bbox[0] * ratio[0]}
+          y={bbox[1] * ratio[1]}
+          width={bbox[2] * ratio[0]}
+          height={bbox[3] * ratio[1]}
+          stroke={removedBboxes.includes(index) ? selected_color : unselected_color}
+          strokeWidth={2}
+          onClick={() => {
+            if (!isSwapped) return;
+
+            setRemovedBboxes(
+              removedBboxes.includes(index)
+                ? removedBboxes.filter((item) => item !== index)
+                : [...removedBboxes, index]
+            );
+          }}
+        />
+      ))
+    );
+  }
 
   const repetition = () => {
     return (
-      inProcessResult.refs_bboxes.map((bbox, index) => {
-          if (addedBboxes[index] === 0) return null;
+      inProcessResult.refs_bboxes.map((bbox: number[], index: number) => {
+          if (addedBboxes[index] === 0) return (<></>);
 
           const x = (bbox[0] + bbox[2]) * ratio[0];
           const y = (bbox[1] + 0.5 * bbox[3]) * ratio[1];
@@ -285,7 +261,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       ))
   }
 
-  const bboxes = isSwapped ? [ref_bboxes(), inferred_bboxes] : [inferred_bboxes, ref_bboxes(), repetition()];
+  const bboxes: React.JSX.Element[][] = isSwapped ? [ref_bboxes(), inferred_bboxes()] : [inferred_bboxes(), ref_bboxes(), repetition()];
 
   const helper = () => {
     const layout_data: LayoutData = isSwapped ? inferred_layout_data : ref_layout_data;
@@ -304,17 +280,12 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       >
         <div style={{display: 'flex'}}>
           {layout_data.label}
-          <div style={{marginTop: '-17px', marginLeft: '-6px'}}>
-          <LightTooltip
-            title={"Changes applied to this layout won't affect the other one but both will be used to find the PIN code"}
-            placement={"right-end"}
-          >
-            <InfoIcon sx={{
-              width: '20px',
-              color: 'rgb(21, 101, 192)',
-              m: 1
-            }}/>
-          </LightTooltip>
+          <div style={{marginTop: '-10px', marginLeft: '-2px'}}>
+            <LightTooltipHelper
+              title={"Changes applied to this layout won't affect the other one but both" +
+                     " will be used to find the PIN code"}
+              placement={"right-end"}
+            />
           </div>
         </div>
         {layout_data.help}

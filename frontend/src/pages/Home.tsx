@@ -1,17 +1,63 @@
-import "../styles/Home.css"
+import React from "react";
+
 import PhoneReferences from "../components/Input/PhoneReferences";
-import ResultComponent from "../components/Result.jsx"
-import Navbar from "../components/Navbar.jsx"
-import {useState} from "react";
-import {MaterialDesignContent, SnackbarProvider} from "notistack";
-import {styled} from "@mui/material/styles";
+import ResultComponent from "../components/Result"
+import Navbar from "../components/Navbar"
 import CodeUserValidation from "../components/CodeUserValidation";
+import Status from "../components/Status";
 
+import "../styles/Home.css"
 
-export interface DisplayState {
-  message: string,
-  severity: 'success' | 'info' | 'warning' | 'error',
-  open: boolean
+type InferenceCorrection = 'manual' | 'auto'
+
+export class Config {
+  pinLength: number = 6;
+  orderGuessingAlgorithms: { [algorithm: string]: boolean } = {};
+  cipher_guess: string[] = Array.from({length: 6}, () => '');
+  inference_correction: InferenceCorrection = 'manual';
+
+  getSelectedOrderGuessingAlgorithms = () => {
+    return Object.keys(this.orderGuessingAlgorithms).filter(algo => this.orderGuessingAlgorithms[algo])
+  }
+
+  resetOrderGuessingAlgorithms = () => {
+    for (const algo in this.orderGuessingAlgorithms) {
+      this.orderGuessingAlgorithms[algo] = true
+    }
+  }
+
+  resetCipherGuess = () => {
+    this.cipher_guess = Array.from({length: this.pinLength}, () => '')
+  }
+}
+
+export class InProcessResult {
+  reference: string;
+  filename: string;
+  image: string;
+  refs_bboxes: number[][];
+  inferred_bboxes: number[][];
+  inferred_ciphers: number[];
+  expected_pin_length: number;
+
+  constructor (
+    reference: string = "",
+    filename: string = "",
+    image: string = "",
+    refs_bboxes: number[][] = [],
+    inferred_bboxes: number[][] = [],
+    inferred_ciphers: number[] = [],
+    expected_pin_length: number = 6
+  ) {
+
+    this.reference = reference;
+    this.filename = filename;
+    this.image = image;
+    this.refs_bboxes = refs_bboxes;
+    this.inferred_bboxes = inferred_bboxes;
+    this.inferred_ciphers = inferred_ciphers;
+    this.expected_pin_length = expected_pin_length;
+  }
 }
 
 export interface Data {
@@ -21,102 +67,59 @@ export interface Data {
   pin_codes: string[]
 }
 
-export interface Result {
-  data: { [source: string]: Data },
-  current_source: string,
-  nb_step: number
+export class Result {
+  data: { [source: string]: Data };
+  current_source: string;
+  nb_step: number;
+
+  constructor (
+    data: { [source: string]: Data } = {},
+    current_source: string = '',
+    nb_step: number = 0
+  ) {
+
+    this.data = data;
+    this.current_source = current_source;
+    this.nb_step = nb_step;
+  }
 }
 
-export interface InProcessResult {
-  reference: string,
-  image: string,
-  refs_bboxes: number[][],
-  inferred_bboxes: number[][],
-  inferred_ciphers: number[],
-  expected_pin_length: number
-}
 
 function Home() {
 
-  const [inProcessResult, setInProcessResult] = useState<InProcessResult>({
-    reference: "",
-    image: "",
-    refs_bboxes: [],
-    inferred_bboxes: [],
-    inferred_ciphers: [],
-    expected_pin_length: 6
-  })
+  const [
+    config,
+    setConfig
+  ] = React.useState<Config>(new Config)
 
-  const [result, setResult] = useState<Result>({
-    data: {},
-    current_source: '',
-    nb_step: 0
-  })
+  const [
+    inProcessResult,
+    setInProcessResult] = React.useState<InProcessResult>(new InProcessResult())
 
-  const [displayState, setDisplayState] = useState<DisplayState>({
-    message: "",
-    severity: "success",
-    open: false
-  })
-
-  const StyledMaterialDesignContent = styled(MaterialDesignContent)(() => ({
-    '&.notistack-MuiContent-success': {
-      'svg': {
-        color: 'rgb(46, 125, 50)',
-      },
-      color: 'rgb(30, 70, 32)',
-      backgroundColor: '#edf7ed'
-
-    },
-    '&.notistack-MuiContent-error': {
-      'svg': {
-        color: 'rgb(211, 47, 47)',
-      },
-      color: 'rgb(141,37,37)',
-      backgroundColor: '#fdeded'
-    },
-    '&.notistack-MuiContent-info': {
-      'svg': {
-        color: 'rgb(2, 136, 209)',
-      },
-      color: 'rgb(1, 67, 97)',
-      backgroundColor: '#e5f6fd'
-    },
-    '&.notistack-MuiContent-warning': {
-      'svg': {
-        color: 'rgb(237, 108, 2)',
-      },
-      color: 'rgb(102, 60, 0)',
-      backgroundColor: '#fff4e5'
-    }
-  }));
+  const [
+    result,
+    setResult] = React.useState<Result>(new Result())
 
 
   return (
     <div>
       <Navbar/>
-      <div id="main">
-        <div id={"left"}>
-          <PhoneReferences setInProcessResult={setInProcessResult} result={result} setResult={setResult} />
+      <div style={{marginTop: '30px', marginLeft: '30px', display: 'flex', justifyContent: 'space-between'}}>
+        <div style={{width: '60%'}}>
+          <PhoneReferences
+            config={config}
+            setConfig={setConfig}
+            setInProcessResult={setInProcessResult}
+            result={result}
+            setResult={setResult} />
         </div>
-        <div id={"right"}>
-          <CodeUserValidation inProcessResult={inProcessResult} />
+        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%'}}>
+          <CodeUserValidation inProcessResult={inProcessResult} setInProcessResult={setInProcessResult} setResult={setResult}/>
           <ResultComponent result={result} setResult={setResult} />
         </div>
       </div>
 
-      {// @ts-ignore
-        <SnackbarProvider
-          autoHideDuration={2000}
-          maxSnack={1}
-          Components={{
-            success: StyledMaterialDesignContent,
-            error: StyledMaterialDesignContent,
-            info: StyledMaterialDesignContent,
-            warning: StyledMaterialDesignContent
-          }}
-        />
-      }
+      <Status />
     </div>
   )
 }

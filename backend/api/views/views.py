@@ -12,6 +12,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from PIL import Image
 
 import json
+import ast
 
 from api.views.imageProcessing import *
 from api.views.modelWrapper import ModelWrapper
@@ -109,6 +110,7 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
         b64_img = "data:image/png;base64," + base64.b64encode(image).decode('utf-8')
         response = {
             'reference': ref,
+            'filename': filename,
             'image': b64_img,
             'ref_bboxes': refs_bboxes,
             'inferred_bboxes': [bb.xywh() for bb in bboxes],
@@ -134,7 +136,9 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
 
 @csrf_exempt
 def find_pin_code_from_manual(request: WSGIRequest) -> HttpResponse:
-    added_ciphers
+    ciphers = ast.literal_eval(request.POST.get('new-ciphers'))
+
+
 @csrf_exempt
 def update_pin_code(request: WSGIRequest) -> HttpResponse:
     sequence = request.POST.get('sequence').split('-')

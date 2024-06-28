@@ -1,22 +1,21 @@
 import {Slider} from "@mui/material";
 import * as React from "react";
+import {Config} from "../../pages/Home";
 
 
 interface CodeLengthSliderProps {
-  setPinLength: React.Dispatch<React.SetStateAction<number>>,
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>,
-  cipherGuess: string[],
-  setCipherGuess: React.Dispatch<React.SetStateAction<string[]>>
+  config: Config,
+  setConfig: React.Dispatch<React.SetStateAction<Config>>
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
-  setPinLength,
-  setOnlyComputeOrder,
-  cipherGuess,
-  setCipherGuess
+  config,
+  setConfig,
+  setOnlyComputeOrder
 }) => {
 
-  const slider = (
+  return (
     <div style={{display: 'flex', flexDirection: 'row'}}>
       <div style={{minWidth: 'fit-content', marginRight: '25px', marginTop: '1px', color: '#5f5f5f'}}>
         Pin length
@@ -24,14 +23,19 @@ const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
     <Slider
       aria-label="PIN code's length"
       defaultValue={6}
-      onChange={(e) => {
-        const newPinLength = e.target.value
-        setPinLength(newPinLength)
-        const newCipherGuess = Array(newPinLength).fill(undefined);
-        for (let i = 0; i < Math.min(newPinLength, cipherGuess.length); i++) {
-          newCipherGuess[i] = cipherGuess[i];
+      onChange={(event: Event) => {
+        if (!(event.target instanceof HTMLInputElement)) return
+
+        const newPinLength: number = parseInt(event.target.value)
+        const newCipherGuess = Array(newPinLength).fill('');
+        for (let i = 0; i < Math.min(newPinLength, config.cipher_guess.length); i++) {
+          newCipherGuess[i] = config.cipher_guess[i];
         }
-        setCipherGuess(newCipherGuess)
+        setConfig({
+          ...config,
+          pinLength: newPinLength,
+          cipher_guess: newCipherGuess
+        });
         setOnlyComputeOrder(false)
       }}
       valueLabelDisplay="on"
@@ -65,8 +69,6 @@ const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
     />
     </div>
   );
-
-  return slider
 }
 
 export default CodeLengthSlider

@@ -1,16 +1,14 @@
 import Autocomplete from "@mui/material/Autocomplete";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import Badge from "@mui/material/Badge";
-import CheckIcon from "@mui/icons-material/Check";
+import {TextField, Button, Badge} from "@mui/material";
 import CancelIcon from "@mui/icons-material/Cancel";
-import {closeSnackbar} from "notistack";
-import api from "../../api.js";
-import * as React from "react";
-import {useEffect, useState} from "react";
-import {displayStatus} from './PhoneReferences'
+import CheckIcon from "@mui/icons-material/Check";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import api from "../../api";
+import React from "react";
+import {closeStatus, displayStatus} from '../Status'
 import {styled} from "@mui/material/styles";
+import {Config} from "../../pages/Home";
+import {AxiosError, AxiosResponse} from "axios";
 
 
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
@@ -33,8 +31,8 @@ interface ReferenceHandlerProps {
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   referenceLabel: ReferenceLabel;
   setReferenceLabel: React.Dispatch<React.SetStateAction<ReferenceLabel>>;
-  setOrderGuessingAlgorithms: React.Dispatch<React.SetStateAction<{[algorithm: string]: boolean}>>;
-
+  config: Config;
+  setConfig: React.Dispatch<React.SetStateAction<Config>>;
 }
 
 
@@ -43,17 +41,18 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
   setInputValue,
   referenceLabel,
   setReferenceLabel,
-  setOrderGuessingAlgorithms
+  config,
+  setConfig
 }) => {
 
   const [phoneReferences,
-         setPhoneReferences] = useState<{ [ref: string]: number }>({});
+         setPhoneReferences] = React.useState<{ [ref: string]: number }>({});
 
 
 
   const loadReferences = () => {
     api.get('/api/phone-references')
-      .then(response => {
+      .then((response: AxiosResponse) => {
         const refs = response.data['refs']
         setPhoneReferences(refs.reduce(
           (acc: { [key: string]: number }, ref: {ref: string, id: number}) => {
@@ -62,18 +61,21 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
           return acc;
         }, {} as { [key: string]: number }));
         const newOrderGuessingAlgorithms = response.data['order_guessing_algorithms'].reduce(
-          (acc: {string : boolean}, algorithm: string) => {
+          (acc: {[algo: string] : boolean}, algorithm: string) => {
           acc[algorithm] = true
           return acc
         }, {});
-        setOrderGuessingAlgorithms(newOrderGuessingAlgorithms)
+        setConfig({
+          ...config,
+          orderGuessingAlgorithms: newOrderGuessingAlgorithms
+        });
       })
-      .catch(err => {
+      .catch((err: AxiosError) => {
         console.error('There was an error loading the references!', err);
       });
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadReferences();
   }, []);
 
@@ -96,7 +98,7 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
     formData.append('phone', file);
 
     api.post("/api/phone-references", formData)
-      .then(response => {
+      .then((response: AxiosResponse) => {
         if (response.status === 201) {
           setPhoneReferences(prevReferences => ({
             ...prevReferences,
@@ -107,7 +109,7 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
           displayStatus(response.data['ref'] + ' added successfully!', 'success');
         }
       })
-      .catch(err => {
+      .catch((err: AxiosError) => {
         if (err.response && err.response.status === 422) {
           displayStatus(err.response.data, 'error');
         }
@@ -116,7 +118,7 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
 
   const handleDeleteReference = () => {
     api.delete("/api/phone-references/" + phoneReferences[inputValue])
-      .then(response => {
+      .then((response: AxiosResponse) => {
         if (response.status === 201) {
           delete phoneReferences[inputValue];
           setPhoneReferences(phoneReferences)
@@ -165,8 +167,7 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
         sx={{marginLeft: '20px', minWidth: 'fit-content'}}
         onClick={() => {
           displayStatus('Do you really want to delete ' + inputValue, 'info',
-            () => (
-              <Button
+            (<Button
                 variant={"contained"}
                 style={{
                   justifyContent: 'space-between',
@@ -181,13 +182,10 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
                 </Badge>
                 <Badge
                   badgeContent={<CancelIcon/>}
-                  onClick={() => {
-                    closeSnackbar()
-                  }}
+                  onClick={closeStatus}
                 >
                 </Badge>
-              </Button>
-            ), {autoHideDuration: null})
+              </Button>), {autoHideDuration: null})
         }}
       > Delete reference
       </Button>

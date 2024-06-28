@@ -1,13 +1,13 @@
 import {styled, useTheme} from '@mui/material/styles';
 import MobileStepper from '@mui/material/MobileStepper';
-import {Badge, Button, Grid, Grow, Paper, Tooltip, tooltipClasses, TooltipProps} from '@mui/material';
+import {Badge, Button, Grid, Paper} from '@mui/material';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import * as React from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
-import {enqueueSnackbar} from "notistack";
 import {Result} from "../pages/Home";
-import InfoIcon from "@mui/icons-material/Info";
+import {displayStatus} from "./Status";
+import LightTooltipHelper from "./LightTooltipHelper";
 
 
 
@@ -18,18 +18,6 @@ const GridItem = styled(Paper)(({theme}) => ({
   textAlign: 'center',
   color: theme.palette.text.secondary
 }));
-
-const LightTooltip = styled(({className, ...props}: TooltipProps) => (
-  <Tooltip {...props} classes={{popper: className}}/>
-))(({theme}) => ({
-  [`& .${tooltipClasses.tooltip}`]: {
-    backgroundColor: theme.palette.common.white,
-    boxShadow: theme.shadows[1],
-    color: 'rgba(0, 0, 0, 0.6)',
-    fontSize: 14,
-  },
-}));
-
 
 interface ResultComponentProps {
   result: Result,
@@ -45,14 +33,6 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
 
   const theme = useTheme();
   const [activeStep, setActiveStep] = React.useState<number>(0)
-
-  const displayStatus = (message, severity, ...options) => {
-    enqueueSnackbar({message, variant: severity, TransitionComponent: Grow, ...options})
-  }
-
-  const helperOffset = (x: number, y: number) => {
-    return {modifiers: [{name: 'offset', options: {offset: [x, y]}}]}
-  }
 
   const handleNext = () => {
     const keys = Object.keys(result.data);
@@ -99,16 +79,16 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
     displayStatus("Result from " + prevcurrent_source + "has been deleted", "success")
   }
 
-  if (result.current_source === "" || result.data == {}) {
+  if (result.current_source === "" || Object.keys(result.data).length === 0)
     return;
-  }
+
 
   const res = result.data[result.current_source]
   const reference = res["reference"]
   const image = res["image"]
   const pin_codes = res["pin_codes"]
 
-  let pin_codes_grid = () => {
+  const pin_codes_grid = () => {
     if (pin_codes.length === 0) {
       return (
         <div style={{color: theme.palette.text.secondary}}>No PIN codes</div>
@@ -123,18 +103,11 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       <div style={{position: 'relative', marginLeft: '125px'}}>
         <div style={{color: theme.palette.text.secondary, marginBottom: '10px'}}>
           PIN codes
-          <LightTooltip
-            title={"Only the PIN codes ranks are displayed because probabilities are too small to be readable."}
+          <LightTooltipHelper
+            title={"Only the PIN codes ranks are displayed because probabilities" +
+                  " are too small to be readable."}
             placement={"top"}
-            slotProps={{popper: helperOffset(0, 0)}}
-          >
-            <InfoIcon sx={{
-              marginLeft: '3px',
-              marginBottom: '-1px',
-              width: '20px',
-              color: 'rgb(21, 101, 192)'
-            }}/>
-          </LightTooltip>
+          />
         </div>
         <Paper elevation={1} style={{padding: '16px'}}>
          <Grid container sx={{width: '220px'}}>

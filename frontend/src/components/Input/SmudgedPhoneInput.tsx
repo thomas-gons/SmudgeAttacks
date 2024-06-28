@@ -1,13 +1,43 @@
 import Button from "@mui/material/Button";
 import * as React from "react";
 
-import {VisuallyHiddenInput, displayStatus} from "./PhoneReferences";
-import Thumb from "./Thumb";
+import {displayStatus} from "../Status";
+import {VisuallyHiddenInput} from "./PhoneReferences";
 
+
+const thumbsContainer: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  marginTop: 16
+};
+
+const thumbElement: React.CSSProperties = {
+  display: 'inline-flex',
+  borderRadius: 2,
+  border: '1px solid #eaeaea',
+  marginBottom: 8,
+  marginRight: 8,
+  width: 100,
+  height: 100,
+  padding: 4,
+};
+
+const thumbInner: React.CSSProperties = {
+  display: 'flex',
+  minWidth: 0,
+  overflow: 'hidden'
+};
+
+const imgStyle = {display: 'block', width: 'auto', height: '100%'};
+
+interface Thumb extends File {
+  preview: string;
+}
 
 interface SmudgedPhoneInputProps {
-  smudgedPhoneImages: File[];
-  setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<File[]>>;
+  smudgedPhoneImages: Thumb[];
+  setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<Thumb[]>>;
   setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>;
 
 }
@@ -47,7 +77,16 @@ const SmudgedPhoneInput: React.FC<SmudgedPhoneInputProps> = ({
           }}
         />
       </Button>
-      <Thumb smudgedPhoneImages={smudgedPhoneImages}/>
+      <aside style={thumbsContainer}>
+       {smudgedPhoneImages.map(image => (
+        <div style={thumbElement} key={image.name}>
+           <div style={thumbInner}>
+             <img src={image.preview} alt={image.name} style={imgStyle} onLoad={() => URL.revokeObjectURL(image.preview)}/>
+           </div>
+         </div>
+       ))
+     }
+     </aside>
     </section>
   )
 }
