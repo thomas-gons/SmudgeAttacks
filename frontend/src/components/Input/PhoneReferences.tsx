@@ -66,7 +66,8 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       image: "",
       refs_bboxes: [],
       inferred_bboxes: [],
-      inferred_ciphers: []
+      inferred_ciphers: [],
+      expected_pin_length: pinLength
     })
   }
 
@@ -150,7 +151,8 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               image: response.data['image'],
               refs_bboxes: response.data['ref_bboxes'],
               inferred_bboxes: response.data['inferred_bboxes'],
-              inferred_ciphers: response.data['inferred_ciphers']
+              inferred_ciphers: response.data['inferred_ciphers'],
+              expected_pin_length: pinLength
             }
             setInProcessResult(newInProcessResult)
           }
@@ -190,7 +192,9 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
             reference: inputValue,
             image: response.data['image'],
             refs_bboxes: response.data['refs_bboxes'],
-            inferred_bboxes: response.data['inferred_bboxes']
+            inferred_bboxes: response.data['inferred_bboxes'],
+            inferred_ciphers: response.data['inferred_ciphers'],
+            expected_pin_length: pinLength
           }
           console.log(newInProcessResult)
           setInProcessResult(newInProcessResult)

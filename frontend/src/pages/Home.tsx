@@ -32,7 +32,8 @@ export interface InProcessResult {
   image: string,
   refs_bboxes: number[][],
   inferred_bboxes: number[][],
-  inferred_ciphers: number[]
+  inferred_ciphers: number[],
+  expected_pin_length: number
 }
 
 function Home() {
@@ -42,7 +43,8 @@ function Home() {
     image: "",
     refs_bboxes: [],
     inferred_bboxes: [],
-    inferred_ciphers: []
+    inferred_ciphers: [],
+    expected_pin_length: 6
   })
 
   const [result, setResult] = useState<Result>({

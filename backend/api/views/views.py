@@ -133,6 +133,9 @@ def detect_phone(request: WSGIRequest) -> HttpResponse:
 
 
 @csrf_exempt
+def find_pin_code_from_manual(request: WSGIRequest) -> HttpResponse:
+    added_ciphers
+@csrf_exempt
 def update_pin_code(request: WSGIRequest) -> HttpResponse:
     sequence = request.POST.get('sequence').split('-')
     formatted_sequence = [(cipher, 1.0) for cipher in sequence]
