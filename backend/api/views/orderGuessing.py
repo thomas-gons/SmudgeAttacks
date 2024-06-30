@@ -12,7 +12,6 @@ from utils.generate_stats import StatsBuilder
 
 
 class OrderGuessing:
-
     __instance = None
 
     @staticmethod
@@ -77,10 +76,11 @@ class OrderGuessing:
         all_pins_sep_tmp = list(permutations(np.array(ciphers)[:, 0].astype(int)))
         all_pins_sep = []
         guess_indexes = [i for i, val in enumerate(cipher_guess) if val != '']
+        empty_string = ['', ""]
         for pin_sep in all_pins_sep_tmp:
             valid = True
             for i in guess_indexes:
-                if cipher_guess[i] != '' and pin_sep[i] != int(cipher_guess[i]):
+                if cipher_guess[i] not in empty_string and pin_sep[i] != int(cipher_guess[i]):
                     valid = False
                     break
 
@@ -118,14 +118,20 @@ class OrderGuessing:
         return algorithms_probs
 
     @staticmethod
-    def process(ciphers: List[Tuple[int, float]], cipher_guessing_algorithms: List[str], cipher_guess: List[str]) -> List[str]:
+    def process(
+            ciphers: List[Tuple[int, float]],
+            order_guessing_algorithms: Dict[str, bool],
+            order_cipher_guesses: List[str]
+    ) -> List[str]:
+
         og = OrderGuessing.get_order_guessing_instance(len(ciphers), should_update=True)
-        all_pins_sep = og.reduce_permutations_by_guess(ciphers, cipher_guess)
+        all_pins_sep = og.reduce_permutations_by_guess(ciphers, order_cipher_guesses)
         all_pins = np.array([reduce(lambda x, y: 10 * x + y, pin) for pin in all_pins_sep])
         all_pins_sep = np.array(all_pins_sep)
         n_permutations = len(all_pins)
 
-        algorithms_probs = og.compute_all_probs(cipher_guessing_algorithms, all_pins_sep, all_pins)
+        order_guessing_algorithms = [k for k, v in order_guessing_algorithms.items() if v]
+        algorithms_probs = og.compute_all_probs(order_guessing_algorithms, all_pins_sep, all_pins)
         weights = defaultdict(int)
 
         for rank in range(n_permutations):

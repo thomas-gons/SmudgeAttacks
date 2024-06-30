@@ -167,7 +167,7 @@ class DigitRecognition:
         bboxes.pop(-1)
         return bboxes
 
-    def process_data(self) -> Tuple[List[BoundingBox], BytesIO]:
+    def process_data(self) -> List[BoundingBox]:
         """
         Method to execute the whole pipeline to extract digits' bounding boxes
         """
@@ -176,18 +176,12 @@ class DigitRecognition:
         matrix_centroids = self.extract_digit_matrix(centroids)
         pin_bboxes = self.get_pin_bbox(matrix_centroids)
 
-        # export the "reference" result for frontend displaying
-        pw = PyplotWrapper(is_subplots=True)
-        pw.plot_reference(self.image, pin_bboxes, list(range(10)))
-        b64_image = pw.export_as_b64()
-
-        return pin_bboxes, b64_image
+        return pin_bboxes
 
 
-def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[
+def guess_ciphers(bboxes: List[BoundingBox], reference: str) -> Tuple[
         List[Tuple[int, float]],
         List[BoundingBox],
-        str
 ]:
     """
     "Guess" the ciphers used for the PIN code by taking the best IOU score
@@ -198,7 +192,6 @@ def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[
     ref_id = ReferenceModel.objects.get(ref=reference).id
     refs_obj = BoundingBoxModel.objects.filter(ref=ref_id)
     refs_dict = {bb.cipher: BoundingBox(bb.x, bb.y, bb.w, bb.h) for bb in refs_obj}
-    refs_ciphers = list(refs_dict.keys())
     refs_bboxes = list(refs_dict.values())
 
     pin = []
@@ -208,13 +201,7 @@ def guess_ciphers(img, bboxes: List[BoundingBox], reference: str) -> Tuple[
         best_iou = float(iou[best_cipher])
         pin.append((best_cipher, best_iou))
 
-    # export the result with ciphers and reference and inferred bounding boxes
-    # for frontend displaying
-    pw = PyplotWrapper(is_subplots=True)
-    pw.plot_result(img, bboxes, refs_bboxes, refs_ciphers)
-    b64_image = pw.export_as_b64()
-
     # TODO: handle less or more than six ciphers retrieved
     # --> if less use markov chain to guess more probable missing ciphers
     # --> if more then compute order for all sequence of 6 ciphers keep cipher with IOU > 0.9 in place
-    return pin, [ref.xywh() for ref in refs_bboxes], b64_image
+    return pin, [ref.xywh() for ref in refs_bboxes]

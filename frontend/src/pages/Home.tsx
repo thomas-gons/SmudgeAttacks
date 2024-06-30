@@ -11,23 +11,23 @@ import "../styles/Home.css"
 type InferenceCorrection = 'manual' | 'auto'
 
 export class Config {
-  pinLength: number = 6;
-  orderGuessingAlgorithms: { [algorithm: string]: boolean } = {};
-  cipher_guess: string[] = Array.from({length: 6}, () => '');
+  pin_length: number = 6;
+  order_guessing_algorithms: { [algorithm: string]: boolean } = {};
+  order_cipher_guesses: string[] = Array.from({length: 6}, () => '');
   inference_correction: InferenceCorrection = 'manual';
 
   getSelectedOrderGuessingAlgorithms = () => {
-    return Object.keys(this.orderGuessingAlgorithms).filter(algo => this.orderGuessingAlgorithms[algo])
+    return Object.keys(this.order_guessing_algorithms).filter(algo => this.order_guessing_algorithms[algo])
   }
 
   resetOrderGuessingAlgorithms = () => {
-    for (const algo in this.orderGuessingAlgorithms) {
-      this.orderGuessingAlgorithms[algo] = true
+    for (const algo in this.order_guessing_algorithms) {
+      this.order_guessing_algorithms[algo] = true
     }
   }
 
   resetCipherGuess = () => {
-    this.cipher_guess = Array.from({length: this.pinLength}, () => '')
+    this.order_cipher_guesses = Array.from({length: this.pin_length}, () => '')
   }
 }
 
@@ -62,8 +62,9 @@ export class InProcessResult {
 
 export interface Data {
   reference: string
-  sequence: string
   image: string,
+  refs_bboxes: number[][];
+  inferred_bboxes: number[][];
   pin_codes: string[]
 }
 
@@ -114,7 +115,12 @@ function Home() {
             setResult={setResult} />
         </div>
         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%'}}>
-          <CodeUserValidation inProcessResult={inProcessResult} setInProcessResult={setInProcessResult} setResult={setResult}/>
+          <CodeUserValidation
+            config={config}
+            inProcessResult={inProcessResult}
+            setInProcessResult={setInProcessResult}
+            setResult={setResult}
+          />
           <ResultComponent result={result} setResult={setResult} />
         </div>
       </div>

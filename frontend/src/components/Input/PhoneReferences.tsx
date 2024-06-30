@@ -22,6 +22,9 @@ import {AxiosResponse, AxiosError} from "axios";
 
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
+interface Thumb extends File {
+  preview: string;
+}
 
 export const VisuallyHiddenInput = styled('input')({
   clipPath: 'inset(50%)',
@@ -53,7 +56,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
-  const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<File[]>([]);
+  const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<Thumb[]>([]);
   const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
@@ -62,7 +65,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       return
     }
     const formData = new FormData();
-    formData.append("new_pin_length", config.pinLength.toString())
+    formData.append("new_pin_length", config.pin_length.toString())
     formData.append("reference_file", event.target.files[0])
     api.post("api/build-statistics", formData)
       .then((response: AxiosResponse) => {
@@ -93,14 +96,13 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       const formData = new FormData();
       formData.append("ref", inputValue);
       formData.append('image', file);
-      formData.append('order_guessing_algorithms', JSON.stringify(config.getSelectedOrderGuessingAlgorithms()))
-      formData.append('cipher_guess', JSON.stringify(config.cipher_guess))
-      formData.append('cipher_correction', config.inference_correction)
+      formData.append('config', JSON.stringify(config))
+
       setIsProcessing(true)
       api.post("api/find-pin-code", formData)
         .then((response: AxiosResponse) => {
           setIsProcessing(false)
-          if (response.status === 201) {
+          if (response.status === 200) {
             const filename = response.data['filename'];
             if (result.data[filename]) {
               return
@@ -110,7 +112,8 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
             const data: Data = {
               reference: response.data['reference'],
-              sequence: response.data['sequence'],
+              inferred_bboxes: response.data['inferred_bboxes'],
+              refs_bboxes: response.data['ref_bboxes'],
               image: response.data['image'],
               pin_codes: response.data['pin_codes']
             };
@@ -119,6 +122,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               current_source: filename,
               nb_step: prevRes.nb_step + 1
             }));
+
             setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           } else if (response.status === 206) {
@@ -131,7 +135,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
               refs_bboxes: response.data['ref_bboxes'],
               inferred_bboxes: response.data['inferred_bboxes'],
               inferred_ciphers: response.data['inferred_ciphers'],
-              expected_pin_length: config.pinLength
+              expected_pin_length: config.pin_length
             }
             setInProcessResult(newInProcessResult)
           }
@@ -159,25 +163,14 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
   const handleUpdatePINCode = () => {
 
     const formData = new FormData();
-    formData.append("sequence", result.data[result.current_source].sequence)
+    formData.append("sequence", result.data[result.current_source].pin_codes[0])
     formData.append('order_guessing_algorithms', JSON.stringify(config.getSelectedOrderGuessingAlgorithms()))
-    formData.append('cipher_guess', JSON.stringify(config.cipher_guess))
+    formData.append('cipher_guess', JSON.stringify(config.order_cipher_guesses))
     setIsProcessing(true)
 
     api.post("api/update-pin-code", formData)
       .then((response: AxiosResponse) => {
         setIsProcessing(false)
-        if (response && response.status === 206) {
-          const newInProcessResult = new InProcessResult(
-            inputValue,
-            response.data['image'],
-            response.data['refs_bboxes'],
-            response.data['inferred_bboxes'],
-            response.data['inferred_ciphers'],
-        )
-
-          setInProcessResult(newInProcessResult)
-        }
         const prevResult = result
         prevResult.data[result.current_source].pin_codes = response.data['pin_codes']
         setResult(prevResult)

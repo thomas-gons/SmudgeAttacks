@@ -67,7 +67,7 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
         }, {});
         setConfig({
           ...config,
-          orderGuessingAlgorithms: newOrderGuessingAlgorithms
+          order_guessing_algorithms: newOrderGuessingAlgorithms
         });
       })
       .catch((err: AxiosError) => {

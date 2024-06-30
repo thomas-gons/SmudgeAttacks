@@ -1,5 +1,5 @@
-import {Stage, Layer, Image, Rect, Circle, Group, Text} from "react-konva";
-import {InProcessResult, Result} from "../pages/Home";
+import {Stage, Layer, Image, Circle, Group, Text} from "react-konva";
+import {Config, Data, InProcessResult, Result} from "../pages/Home";
 import React from "react";
 import Button from "@mui/material/Button";
 import Badge from "@mui/material/Badge";
@@ -9,6 +9,7 @@ import api from "../api.js";
 import {displayStatus, closeStatus} from "./Status";
 import {AxiosError, AxiosResponse} from "axios";
 import LightTooltipHelper from "./LightTooltipHelper";
+import {BoundingBox} from "./Input/KonvaHelper";
 
 
 const canvasDim = [450, 450]
@@ -24,15 +25,17 @@ interface LayoutData {
 
 
 interface CodeUserValidationProps {
+  config: Config;
   inProcessResult: InProcessResult;
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>;
   setResult: React.Dispatch<React.SetStateAction<Result>>;
 }
 
 const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
- inProcessResult,
- setInProcessResult,
- setResult
+  config,
+  inProcessResult,
+  setInProcessResult,
+  setResult
 }) => {
 
   if (inProcessResult.image === "") {
@@ -40,13 +43,15 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   }
 
   const [isSwapped, setIsSwapped] = React.useState<boolean>(false);
-  const [removedBboxes, setRemovedBboxes] = React.useState<number[]>([]);
-  const [addedBboxes, setAddedBboxes] = React.useState<number[]>(
+  const [unselected_inferred_bboxes, setUnselected_inferred_bboxes] = React.useState<number[]>(
+    Array.from({ length: 10 }, (_, index) => (inProcessResult.inferred_ciphers.includes(index) ? 0 : -1))
+  );
+  const [selected_reference_bboxes, setSelected_reference_bboxes] = React.useState<number[]>(
     inProcessResult.refs_bboxes.map((_, index) => (inProcessResult.inferred_ciphers.includes(index) ? 1 : 0))
   );
 
   const validation = () => {
-    const checkNewCipherCount = addedBboxes.reduce((acc, item) => acc + item, 0);
+    const checkNewCipherCount = selected_reference_bboxes.reduce((acc, item) => acc + item, 0);
     if (checkNewCipherCount > inProcessResult.expected_pin_length) {
       displayStatus('The number of ciphers exceeds the expected pin length', 'warning');
       return;
@@ -60,24 +65,56 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   }
 
   const handler = () => {
-    // reconstruct the sequence
-    const new_ciphers = addedBboxes.flatMap((item: number, index: number) => {
+
+    const new_ciphers = selected_reference_bboxes.flatMap((item: number, index: number) => {
       return Array(item).fill(index);
     });
 
-    const remaining_inferred_bboxes = inProcessResult.inferred_bboxes.filter((_, index) => !removedBboxes.includes(index));
+    const mapping_cipher_bboxes = []
 
+    // loop over the selected_reference_bboxes
+    for (const cipher of new_ciphers) {
+
+      if (unselected_inferred_bboxes[cipher] === 0) {
+        mapping_cipher_bboxes.push([
+          cipher,
+          inProcessResult.inferred_bboxes[inProcessResult.inferred_ciphers.indexOf(cipher)]
+        ])
+        unselected_inferred_bboxes[cipher] = -1
+      } else if (selected_reference_bboxes[cipher]) {
+        mapping_cipher_bboxes.push([
+          cipher,
+          inProcessResult.refs_bboxes[cipher]
+        ])
+      }
+    }
+
+    // reconstruct the sequence
     const formData = new FormData();
     formData.append('new_ciphers', JSON.stringify(new_ciphers));
-    formData.append('remaining_inferred_bboxes', JSON.stringify(remaining_inferred_bboxes));
+    formData.append('mapping_cipher_bboxes', JSON.stringify(mapping_cipher_bboxes));
     formData.append('reference_bboxes', JSON.stringify(inProcessResult.refs_bboxes));
-    formData.append('image', inProcessResult.image);
-    formData.append('reference', inProcessResult.reference);
+    formData.append('config', JSON.stringify(config))
 
     api.post("api/find-pin-code-from-manual", formData)
       .then((response: AxiosResponse) => {
         if (response.status === 200) {
-          console.log(response.data)
+
+          setInProcessResult(new InProcessResult())
+
+          const data: Data = {
+            reference: inProcessResult.reference,
+            inferred_bboxes: response.data['bboxes'],
+            refs_bboxes: inProcessResult.refs_bboxes,
+            image: inProcessResult.image,
+            pin_codes: response.data['pin_codes']
+          };
+
+          setResult(prevRes => ({
+            data: {...prevRes.data, ...{[inProcessResult.filename]: data}},
+            current_source: inProcessResult.filename,
+            nb_step: prevRes.nb_step + 1
+          }));
         }
       })
       .catch((err: AxiosError) => {
@@ -117,9 +154,6 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   const img: HTMLImageElement = new window.Image();
   img.src = inProcessResult.image;
 
-  const rgbToRgba = (rgb: string, alpha: number) => `rgba(${rgb.slice(4, -1)}, ${alpha})`;
-
-
   const alphaHiddenLike: number = 0.25
   const ref_layout_data: LayoutData = {
     label: 'Reference layout',
@@ -131,13 +165,12 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
           real sequence.<br/><br/>
           Repetitions can be added to a cipher by clicking on it:
         </p>
-        <p>
-          <ul>
-            <li>Left click to increase the repetition count</li>
-            <li>Right click to decrease the repetition count</li>
-            <li>Middle click to deselect the cipher</li>
-          </ul>
-        </p>
+        <br/>
+        <ul>
+          <li>Left click to increase the repetition count</li>
+          <li>Right click to decrease the repetition count</li>
+          <li>Middle click to deselect the cipher</li>
+        </ul>
       </div>
     ),
     selected_color: 'rgb(255, 0, 0)',
@@ -163,33 +196,34 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   }
 
   const ref_bboxes = () => {
-
-    const selected_color = rgbToRgba(ref_layout_data.selected_color, ref_layout_data.alpha);
-    const unselected_color = rgbToRgba(ref_layout_data.unselected_color, ref_layout_data.alpha);
-
     return (
       inProcessResult.refs_bboxes.map((bbox: number[], index: number) => (
-        <Rect
-          key={index} // Ensure each Rect has a unique key
-          x={bbox[0] * ratio[0]}
-          y={bbox[1] * ratio[1]}
-          width={bbox[2] * ratio[0]}
-          height={bbox[3] * ratio[1]}
-          stroke={addedBboxes[index] > 0 ? selected_color : unselected_color}
-          strokeWidth={2}
+        <BoundingBox
+          bbox={bbox}
+          key={index}
+          ratio={ratio}
+          strokeColor={selected_reference_bboxes[index] > 0 ?
+            ref_layout_data.selected_color : ref_layout_data.unselected_color
+          }
+          alpha={ref_layout_data.alpha}
           onClick={(e) => {
             switch (e.evt.button) {
-              case 0:
-                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index && item < inProcessResult.expected_pin_length ? item + 1 : item)));
-                break;
-              case 1:
-                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index ? 0 : item)));
-                break;
-              case 2:
-                setAddedBboxes(addedBboxes.map((item: number, i: number) => (i === index && item > 0 ? item - 1 : item)));
-                break;
-              default:
-                break;
+              case 0: // right click => increase count
+                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
+                  (i === index && item < inProcessResult.expected_pin_length) ? item + 1 : item
+                ))); break;
+              case 1: // middle click => reset count to 0 or 1 if it's an inferred cipher not removed
+                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
+                  (i !== index) ? item:
+                    unselected_inferred_bboxes[index] === 0 ? 1 : 0
+                ))); break;
+              case 2: // left click => decrease count
+                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
+                  i !== index ? item:
+                    item > 1 ? item - 1:
+                      unselected_inferred_bboxes[index] === 0 ? 1 : 0
+
+                ))); break;
             }
           }}
         />
@@ -198,28 +232,32 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   }
 
   const inferred_bboxes = () => {
-    const rgbToRgba = (rgb: string, alpha: number) => `rgba(${rgb.slice(4, -1)}, ${alpha})`;
-
-    const selected_color = rgbToRgba(inferred_layout_data.selected_color, inferred_layout_data.alpha);
-    const unselected_color = rgbToRgba(inferred_layout_data.unselected_color, inferred_layout_data.alpha);
 
     return (
       inProcessResult.inferred_bboxes.map((bbox: number[], index: number) => (
-        <Rect
+        <BoundingBox
+          bbox={bbox}
           key={index}
-          x={bbox[0] * ratio[0]}
-          y={bbox[1] * ratio[1]}
-          width={bbox[2] * ratio[0]}
-          height={bbox[3] * ratio[1]}
-          stroke={removedBboxes.includes(index) ? selected_color : unselected_color}
-          strokeWidth={2}
+          ratio={ratio}
+          strokeColor={unselected_inferred_bboxes[inProcessResult.inferred_ciphers[index]] == 1 ?
+            inferred_layout_data.selected_color: inferred_layout_data.unselected_color
+          }
+          alpha={inferred_layout_data.alpha}
           onClick={() => {
             if (!isSwapped) return;
 
-            setRemovedBboxes(
-              removedBboxes.includes(index)
-                ? removedBboxes.filter((item) => item !== index)
-                : [...removedBboxes, index]
+            setSelected_reference_bboxes(
+              selected_reference_bboxes.map((item: number, i: number) => (
+                i !== inProcessResult.inferred_ciphers[index] ? item:
+                  unselected_inferred_bboxes[inProcessResult.inferred_ciphers[index]] === 0 ? item - 1:
+                    item < 6 ? item + 1: item
+              ))
+            );
+
+            setUnselected_inferred_bboxes(
+              unselected_inferred_bboxes.map((item: number, i: number) => (
+                i === inProcessResult.inferred_ciphers[index] ? (item === 0 ? 1 : 0) : item
+              ))
             );
           }}
         />
@@ -230,7 +268,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   const repetition = () => {
     return (
       inProcessResult.refs_bboxes.map((bbox: number[], index: number) => {
-          if (addedBboxes[index] === 0) return (<></>);
+          if (selected_reference_bboxes[index] === 0) return (<></>);
 
           const x = (bbox[0] + bbox[2]) * ratio[0];
           const y = (bbox[1] + 0.5 * bbox[3]) * ratio[1];
@@ -245,7 +283,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
               <Text
                 x={x}
                 y={y}
-                text={String(addedBboxes[index])} // or any text you want
+                text={String(selected_reference_bboxes[index])} // or any text you want
                 fontFamily={'Arial, sans-serif'}
                 fontSize={13}
                 fontStyle={'bold'}
@@ -261,7 +299,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       ))
   }
 
-  const bboxes: React.JSX.Element[][] = isSwapped ? [ref_bboxes(), inferred_bboxes()] : [inferred_bboxes(), ref_bboxes(), repetition()];
+  const       bboxes: React.JSX.Element[][] = isSwapped ? [ref_bboxes(), inferred_bboxes()] : [inferred_bboxes(), ref_bboxes(), repetition()];
 
   const helper = () => {
     const layout_data: LayoutData = isSwapped ? inferred_layout_data : ref_layout_data;

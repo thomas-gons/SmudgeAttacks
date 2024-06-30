@@ -29,24 +29,24 @@ const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
 
   const [isConfigOpen, setIsConfigOpen] = React.useState<boolean>(false);
 
-  const orderGuessingAlgorithmsElement = (
+  const order_guessing_algorithms_element = (
     <div style={{marginTop: '8px'}}>
       <div>
         Order guessing algorithms
         <LightTooltipHelper title={"Select the algorithms you want to use for guessing the sequence"} placement={"right"}/>
       </div>
       <Grid container spacing={0}>
-        {Object.keys(config.orderGuessingAlgorithms).map((algorithm, index) => (
+        {Object.keys(config.order_guessing_algorithms).map((algorithm, index) => (
           <Grid item xs={6} key={index}>
             <FormControlLabel control={
               <Checkbox
-                checked={config.orderGuessingAlgorithms[algorithm]}
+                checked={config.order_guessing_algorithms[algorithm]}
                 size={"small"}
                 onChange={(e) => {
                   setConfig({
                     ...config,
-                    orderGuessingAlgorithms: {
-                      ...config.orderGuessingAlgorithms,
+                    order_guessing_algorithms: {
+                      ...config.order_guessing_algorithms,
                       [algorithm]: e.target.checked
                     }
                   })
@@ -66,18 +66,18 @@ const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
         <LightTooltipHelper title={"Enter the guessed pin code"} placement={"right"} />
       </div>
       <div id={"cipher-guesses-container"} style={{marginLeft: '3px'}}>
-        {Array(config.pinLength).fill('').map((_, index: number) => (
+        {Array(config.pin_length).fill('').map((_, index: number) => (
           <Input
             key={index}
-            value={config.cipher_guess[index] || ''}
+            value={config.order_cipher_guesses[index] || ''}
             onChange={(e) => {
               const lastChar = e.target.value.slice(-1)
               e.target.value = /[0-9]/.test(lastChar) ? lastChar : '';
-              const newCipherGuess = [...config.cipher_guess];
+              const newCipherGuess = [...config.order_cipher_guesses];
               newCipherGuess[index] = lastChar;
               setConfig({
                 ...config,
-                cipher_guess: newCipherGuess
+                order_cipher_guesses: newCipherGuess
               });
             }}
             sx={{
@@ -132,7 +132,7 @@ const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
       </div>
 
       {isConfigOpen && <FormGroup sx={{marginTop: '10px'}}>
-        {orderGuessingAlgorithmsElement}
+        {order_guessing_algorithms_element}
         <div style={{position: 'relative', display: 'flex', flexDirection: 'column', marginTop: '8px'}}>
           {cipherGuessElement}
           {cipher_correction}

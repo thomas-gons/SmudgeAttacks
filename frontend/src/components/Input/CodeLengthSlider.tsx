@@ -24,17 +24,19 @@ const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
       aria-label="PIN code's length"
       defaultValue={6}
       onChange={(event: Event) => {
-        if (!(event.target instanceof HTMLInputElement)) return
+        const target = event.target as HTMLInputElement | null;
+        if (target === null)
+          return
 
-        const newPinLength: number = parseInt(event.target.value)
+        const newPinLength: number = parseInt(target.value)
         const newCipherGuess = Array(newPinLength).fill('');
-        for (let i = 0; i < Math.min(newPinLength, config.cipher_guess.length); i++) {
-          newCipherGuess[i] = config.cipher_guess[i];
+        for (let i = 0; i < Math.min(newPinLength, config.order_cipher_guesses.length); i++) {
+          newCipherGuess[i] = config.order_cipher_guesses[i];
         }
         setConfig({
           ...config,
-          pinLength: newPinLength,
-          cipher_guess: newCipherGuess
+          pin_length: newPinLength,
+          order_cipher_guesses: newCipherGuess
         });
         setOnlyComputeOrder(false)
       }}

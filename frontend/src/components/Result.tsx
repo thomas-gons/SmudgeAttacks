@@ -5,10 +5,11 @@ import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import * as React from "react";
 import CancelIcon from '@mui/icons-material/Cancel';
-import {Result} from "../pages/Home";
+import {Data, Result} from "../pages/Home";
 import {displayStatus} from "./Status";
 import LightTooltipHelper from "./LightTooltipHelper";
-
+import {Image, Layer, Stage} from "react-konva";
+import {BoundingBox, TextHelper} from "./Input/KonvaHelper";
 
 
 const GridItem = styled(Paper)(({theme}) => ({
@@ -25,11 +26,13 @@ interface ResultComponentProps {
 
 }
 
+const canvasDim = [450, 450]
+const inputWidth = [640, 640];
 
 const ResultComponent: React.FC<ResultComponentProps> = ({
-  result,
-  setResult,
-}) => {
+                                                           result,
+                                                           setResult,
+                                                         }) => {
 
   const theme = useTheme();
   const [activeStep, setActiveStep] = React.useState<number>(0)
@@ -82,54 +85,15 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
   if (result.current_source === "" || Object.keys(result.data).length === 0)
     return;
 
-
-  const res = result.data[result.current_source]
+  const res: Data = result.data[result.current_source]
+  console.log(res)
   const reference = res["reference"]
-  const image = res["image"]
   const pin_codes = res["pin_codes"]
 
-  const pin_codes_grid = () => {
-    if (pin_codes.length === 0) {
-      return (
-        <div style={{color: theme.palette.text.secondary}}>No PIN codes</div>
-      )
-    }
 
-    const splitIndex = Math.max(Math.ceil(pin_codes.length / 2), 10)
-    const firstPart = pin_codes.slice(0, splitIndex);
-    const secondPart = pin_codes.slice(splitIndex);
-
-    return (
-      <div style={{position: 'relative', marginLeft: '125px'}}>
-        <div style={{color: theme.palette.text.secondary, marginBottom: '10px'}}>
-          PIN codes
-          <LightTooltipHelper
-            title={"Only the PIN codes ranks are displayed because probabilities" +
-                  " are too small to be readable."}
-            placement={"top"}
-          />
-        </div>
-        <Paper elevation={1} style={{padding: '16px'}}>
-         <Grid container sx={{width: '220px'}}>
-             <Grid container xs={6}  direction="column">
-              {firstPart.map((item, index) => (
-                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
-                  {index + 1}. {item}
-                </GridItem>
-              ))}
-            </Grid>
-             <Grid container xs={6} direction="column" >
-              {secondPart.map((item, index) => (
-                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
-                  {index + splitIndex + 1}. {item}
-                </GridItem>
-              ))}
-            </Grid>
-          </Grid>
-        </Paper>
-      </div>
-    )
-  }
+  const ratio = [canvasDim[0] / inputWidth[0], canvasDim[1] / inputWidth[1]];
+  const img: HTMLImageElement = new window.Image();
+  img.src = res.image;
 
   const stepper = (
     <MobileStepper
@@ -177,6 +141,50 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
     />
   )
 
+  const pin_codes_grid = () => {
+    if (pin_codes.length === 0) {
+      return (
+        <div style={{color: theme.palette.text.secondary}}>No PIN codes</div>
+      )
+    }
+
+    const splitIndex = Math.max(Math.ceil(pin_codes.length / 2), 10)
+    const firstPart = pin_codes.slice(0, splitIndex);
+    const secondPart = pin_codes.slice(splitIndex);
+
+    return (
+      <div style={{position: 'relative', marginLeft: '125px'}}>
+        <div style={{color: theme.palette.text.secondary, marginBottom: '10px'}}>
+          PIN codes
+          <LightTooltipHelper
+            title={"Only the PIN codes ranks are displayed because probabilities" +
+              " are too small to be readable."}
+            placement={"top"}
+          />
+        </div>
+        <Paper elevation={1} style={{padding: '16px'}}>
+          <Grid container sx={{width: '220px'}}>
+            <Grid container xs={6} direction="column">
+              {firstPart.map((item, index) => (
+                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
+                  {index + 1}. {item}
+                </GridItem>
+              ))}
+            </Grid>
+            <Grid container xs={6} direction="column">
+              {secondPart.map((item, index) => (
+                <GridItem key={index} sx={{padding: '8px 10px', margin: '2px 5px'}}>
+                  {index + splitIndex + 1}. {item}
+                </GridItem>
+              ))}
+            </Grid>
+          </Grid>
+        </Paper>
+      </div>
+    )
+  }
+
+
   return (
     <div style={{
       display: 'flex',
@@ -191,7 +199,33 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
           {result.current_source} <br/>
         </div>
         <div style={{position: 'relative'}}>
-          <img src={image} alt="no result" style={{objectFit: 'fill', width: '450px', borderRadius: '5px'}} />
+          <Stage
+            width={canvasDim[0]}
+            height={canvasDim[1]}
+          >
+            <Layer>
+              <Image
+                image={img}
+                width={canvasDim[0]}
+                height={canvasDim[1]}
+              />
+              {res.refs_bboxes.map((bbox, index) => (
+                  <BoundingBox bbox={bbox} key={index} ratio={ratio} strokeColor="#0f0" alpha={0.7} />
+              ))}
+              {res.inferred_bboxes.map((bbox, index) => (
+                <BoundingBox bbox={bbox} key={index} ratio={ratio} strokeColor="red" />
+              ))}
+              {res.refs_bboxes.map((bbox, index) => (
+                <TextHelper
+                    key={index}
+                    text={index.toString()}
+                    x={bbox[0] * ratio[0] + bbox[2] * ratio[0] / 2}
+                    y={bbox[1] * ratio[1] + bbox[3] * ratio[1] / 2}
+                    color={"rgba(255, 255, 255, 0.7)"}
+                  />
+              ))}
+            </Layer>
+          </Stage>
           <Badge
             badgeContent={<CancelIcon style={{fontSize: 30, color: "#f00"}}/>}
             color="error"
@@ -212,7 +246,14 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
         </div>
         {stepper}
       </div>
-      <div style={{height: '480x', width: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '65px'}}>
+      <div style={{
+        height: '480x',
+        width: '200px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: '65px'
+      }}>
         {pin_codes_grid()}
       </div>
     </div>
