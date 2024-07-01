@@ -108,7 +108,18 @@ def find_pin_code(request: WSGIRequest) -> HttpResponse:
         }
         return HttpResponse(json.dumps(response), content_type="application/json", status=206)
 
-    most_likely_pin_codes = OrderGuessing.process(ciphers, order_guessing_algorithms, order_cipher_guesses)
+    known_ciphers = [cipher for cipher in order_cipher_guesses if cipher != '']
+    delta = new_pin_length - len(ciphers[:, 0])
+
+    if len(known_ciphers) > 0:
+        for cipher in ciphers[:, 0]:
+            if cipher not in known_ciphers:
+                delta -= 1
+
+    if delta < 0:
+        return HttpResponse(f"Guessed ciphers are incompatible with the inferred ciphers", status=422)
+
+    most_likely_pin_codes = OrderGuessing.case_handler(ciphers, order_guessing_algorithms, order_cipher_guesses)
 
     response = {
         'image': b64_img,

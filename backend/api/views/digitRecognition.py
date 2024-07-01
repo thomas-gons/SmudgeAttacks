@@ -180,7 +180,7 @@ class DigitRecognition:
 
 
 def guess_ciphers(bboxes: List[BoundingBox], reference: str) -> Tuple[
-        List[Tuple[int, float]],
+        np.array,
         List[BoundingBox],
 ]:
     """
@@ -204,4 +204,4 @@ def guess_ciphers(bboxes: List[BoundingBox], reference: str) -> Tuple[
     # TODO: handle less or more than six ciphers retrieved
     # --> if less use markov chain to guess more probable missing ciphers
     # --> if more then compute order for all sequence of 6 ciphers keep cipher with IOU > 0.9 in place
-    return pin, [ref.xywh() for ref in refs_bboxes]
+    return np.array(pin), [ref.xywh() for ref in refs_bboxes]

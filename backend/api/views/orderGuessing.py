@@ -1,10 +1,12 @@
-from itertools import permutations
+from itertools import permutations, product, combinations
 from functools import reduce
 from typing import *
 from collections import defaultdict
 import os
 
 import numpy as np
+import numpy.typing as npt
+from joblib import Parallel, delayed
 
 from api.config import config
 from utils.cipher_to_literal import ciphers_to_literal
@@ -15,7 +17,7 @@ class OrderGuessing:
     __instance = None
 
     @staticmethod
-    def get_order_guessing_instance(pin_length=6, should_update=True) -> 'OrderGuessing':
+    def get_order_guessing_instance(pin_length: int = 6, should_update: bool = True) -> 'OrderGuessing':
         if OrderGuessing.__instance is None:
             OrderGuessing.__instance = OrderGuessing()
 
@@ -52,9 +54,9 @@ class OrderGuessing:
         return True
 
     @staticmethod
-    def generate_stats(_pin_length: int, _file_buffer: BinaryIO) -> None:
+    def generate_stats(pin_length: int, file_buffer: BinaryIO) -> None:
         try:
-            sb = StatsBuilder(file_buffer=_file_buffer, expected_pin_len=_pin_length)
+            sb = StatsBuilder(file_buffer=file_buffer, expected_pin_len=pin_length)
             sb.save_stats()
         except ValueError as e:
             raise e
@@ -72,39 +74,59 @@ class OrderGuessing:
             raise FileNotFoundError("The stats file does not exist. Please generate it first.")
 
     @staticmethod
-    def reduce_permutations_by_guess(ciphers, cipher_guess: List[str]) -> List[Tuple[int]]:
-        all_pins_sep_tmp = list(permutations(np.array(ciphers)[:, 0].astype(int)))
-        all_pins_sep = []
-        guess_indexes = [i for i, val in enumerate(cipher_guess) if val != '']
-        empty_string = ['', ""]
-        for pin_sep in all_pins_sep_tmp:
-            valid = True
-            for i in guess_indexes:
-                if cipher_guess[i] not in empty_string and pin_sep[i] != int(cipher_guess[i]):
-                    valid = False
-                    break
+    def reduce_permutations_by_guess(
+            ciphers: npt.NDArray[int],
+            ordered_cipher_guesses: List[str]
+    ) -> npt.NDArray[npt.NDArray[int]]:
 
-            if valid:
-                all_pins_sep.append(pin_sep)
+        all_pins_sep_tmp = np.array(list(permutations(ciphers)))
+        guess_indexes = [i for i, val in enumerate(ordered_cipher_guesses) if val != '']
 
-        return all_pins_sep
+        if not guess_indexes:
+            return all_pins_sep_tmp
 
-    def compute_prob_by_index(self, all_pins_sep: np.ndarray) -> np.ndarray:
+        ordered_guesses = np.array([int(val) if val != '' else -1 for val in ordered_cipher_guesses])
+        mask = np.ones(len(all_pins_sep_tmp), dtype=bool)
+
+        for i in guess_indexes:
+            mask &= (all_pins_sep_tmp[:, i] == ordered_guesses[i])
+
+        return all_pins_sep_tmp[mask]
+
+    def compute_prob_by_index(
+            self,
+            all_pins_sep: npt.NDArray[npt.NDArray[int]]
+    ) -> npt.NDArray[int]:
+
         prob_acc_index = np.prod(self.prob_by_index[all_pins_sep, np.arange(all_pins_sep.shape[1])], axis=1)
         sorted_pins_acc_index = np.argsort(prob_acc_index)[::-1]
         return sorted_pins_acc_index
 
-    def compute_prob_by_markov_chain(self, all_pins_sep: np.ndarray) -> np.ndarray:
+    def compute_prob_by_markov_chain(
+            self,
+            all_pins_sep: npt.NDArray[npt.NDArray[int]]
+    ) -> npt.NDArray[int]:
+
         prob_acc_markov = np.prod(self.transition_mat[all_pins_sep[:, :-1], all_pins_sep[:, 1:]], axis=1)
         sorted_pins_acc_markov = np.argsort(prob_acc_markov)[::-1]
         return sorted_pins_acc_markov
 
-    def compute_prob_by_frequency(self, all_pins: np.ndarray) -> np.ndarray:
+    def compute_prob_by_frequency(
+            self,
+            all_pins: npt.NDArray[int]
+    ) -> npt.NDArray[int]:
+
         prob_acc_freq = self.freq[all_pins]
         sorted_pins_acc_freq = np.argsort(prob_acc_freq)[::-1]
         return sorted_pins_acc_freq
 
-    def compute_all_probs(self, cipher_guessing_algorithms: List[str], all_pins_sep: np.ndarray, all_pins: np.ndarray):
+    def compute_all_probs(
+            self,
+            cipher_guessing_algorithms: List[str],
+            all_pins_sep: npt.NDArray[npt.NDArray[int]],
+            all_pins: npt.NDArray[int]
+    ) -> List[npt.NDArray[int]]:
+
         algorithms_probs = []
         if 'index' in cipher_guessing_algorithms:
             algorithms_probs.append(self.compute_prob_by_index(all_pins_sep))
@@ -119,10 +141,10 @@ class OrderGuessing:
 
     @staticmethod
     def process(
-            ciphers: List[Tuple[int, float]],
+            ciphers: npt.NDArray[int],
             order_guessing_algorithms: Dict[str, bool],
             order_cipher_guesses: List[str]
-    ) -> List[str]:
+    ) -> Dict[str, float]:
 
         og = OrderGuessing.get_order_guessing_instance(len(ciphers), should_update=True)
         all_pins_sep = og.reduce_permutations_by_guess(ciphers, order_cipher_guesses)
@@ -133,18 +155,68 @@ class OrderGuessing:
         order_guessing_algorithms = [k for k, v in order_guessing_algorithms.items() if v]
         algorithms_probs = og.compute_all_probs(order_guessing_algorithms, all_pins_sep, all_pins)
         weights = defaultdict(int)
-
+        pseudo_probs = defaultdict(float)
         for rank in range(n_permutations):
             for i in range(len(algorithms_probs)):
                 weights[all_pins[algorithms_probs[i][rank]]] += rank
+                pseudo_probs[all_pins[algorithms_probs[i][rank]]] += algorithms_probs[i][rank]
 
         sorted_weights = sorted(weights.items(), key=lambda item: item[1])
         nth_best_weights = sorted_weights[: min(config['n_more_probable_pins'], n_permutations)]
-        more_probable_pins = [pin_code for pin_code, rank in nth_best_weights]
+
+        result = {pin_code: pseudo_probs[pin_code] for pin_code, _ in nth_best_weights}
 
         # as we use numbers, we have to add insignificant zeros
-        more_probable_pins = [str(pin).zfill(og.pin_length) for pin in more_probable_pins]
-        return more_probable_pins
+        return {str(pin).zfill(og.pin_length): pseudo_probs[pin] for pin, pseudo_prob in result.items()}
+
+    @staticmethod
+    def case_handler(
+            ciphers_and_probs: npt.NDArray[Tuple[int, float]],
+            order_guessing_algorithms: Dict[str, bool],
+            order_cipher_guesses: List[str]
+    ) -> List[str]:
+
+        ciphers: npt.NDArray[[Tuple[int, float]]] = ciphers_and_probs[:, 0].astype(int)
+        expected_length = len(order_cipher_guesses)
+
+        delta_length = expected_length - len(ciphers)
+        required_ciphers = np.array([int(cipher) for cipher in order_cipher_guesses if cipher != '' and
+                                     int(cipher) not in ciphers])
+
+        if delta_length > 0:
+            missing_length = delta_length
+            missing_possibilities = np.array(list(product(range(10), repeat=missing_length)))
+
+            # Create a boolean mask for valid sequences
+            valid_mask = np.ones(len(missing_possibilities), dtype=bool)
+            for required_cipher in required_ciphers:
+                valid_mask &= np.any(missing_possibilities == required_cipher, axis=1)
+
+            new_sequences = np.array([
+                np.concatenate((ciphers, missing)) for missing in missing_possibilities[valid_mask]
+            ])
+
+        elif delta_length < 0:
+            all_combinations = np.array(list(combinations(ciphers, expected_length)))
+            mask = np.ones(len(all_combinations), dtype=bool)
+
+            for required_cipher in required_ciphers:
+                mask &= np.any(all_combinations == required_cipher, axis=1)
+
+            new_sequences = all_combinations[mask]
+        else:
+            new_sequences = ciphers_and_probs[:, 0]
+
+        results = Parallel(n_jobs=-1)(
+            delayed(OrderGuessing.process)(
+                sequence, order_guessing_algorithms, order_cipher_guesses
+            ) for sequence in new_sequences
+        )
+
+        # get the sequence associate to best mean probability
+        mean_pseudo_probs = np.array([np.mean(list(result.values())) for result in results])
+
+        return list(results[np.argmax(mean_pseudo_probs)].keys())
 
 
 # use reflection to get the name of the computation methods that start with the following prefix
