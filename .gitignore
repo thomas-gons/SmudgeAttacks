@@ -1,4 +1,4 @@
-.idea
+.idea/
 backend/venv/
 backend/.idea/
 backend/assets/images/
@@ -12,3 +12,5 @@ frontend/node_modules/
 frontend/dist
 frontend/dist-ssr
 frontend/*.local
+
+runs/

@@ -3,10 +3,10 @@ from functools import reduce
 from typing import *
 from collections import defaultdict
 import os
+from typing import List
 
 import numpy as np
 import numpy.typing as npt
-from joblib import Parallel, delayed
 
 from api.config import config
 from utils.cipher_to_literal import ciphers_to_literal
@@ -144,7 +144,7 @@ class OrderGuessing:
             ciphers: npt.NDArray[int],
             order_guessing_algorithms: Dict[str, bool],
             order_cipher_guesses: List[str]
-    ) -> Dict[str, float]:
+    ) -> list[list[str | float]]:
 
         og = OrderGuessing.get_order_guessing_instance(len(ciphers), should_update=True)
         all_pins_sep = og.reduce_permutations_by_guess(ciphers, order_cipher_guesses)
@@ -164,10 +164,9 @@ class OrderGuessing:
         sorted_weights = sorted(weights.items(), key=lambda item: item[1])
         nth_best_weights = sorted_weights[: min(config['n_more_probable_pins'], n_permutations)]
 
-        result = {pin_code: pseudo_probs[pin_code] for pin_code, _ in nth_best_weights}
+        result = [[pin_code, pseudo_probs[pin_code]] for pin_code, _ in nth_best_weights]
 
-        # as we use numbers, we have to add insignificant zeros
-        return {str(pin).zfill(og.pin_length): pseudo_probs[pin] for pin, pseudo_prob in result.items()}
+        return [[str(pin).zfill(og.pin_length), pseudo_probs[pin]] for pin, pseudo_prob in result]
 
     @staticmethod
     def case_handler(
@@ -205,18 +204,18 @@ class OrderGuessing:
 
             new_sequences = all_combinations[mask]
         else:
-            new_sequences = ciphers_and_probs[:, 0]
+            new_sequences = np.array([ciphers])
 
-        results = Parallel(n_jobs=-1)(
-            delayed(OrderGuessing.process)(
-                sequence, order_guessing_algorithms, order_cipher_guesses
-            ) for sequence in new_sequences
-        )
+        best_mean = 0
+        best_sequences = []
+        for i, sequence in enumerate(new_sequences):
+            result = OrderGuessing.process(sequence, order_guessing_algorithms, order_cipher_guesses)
+            mean = np.mean([float(prob) for _, prob in result])
+            if mean > best_mean:
+                best_mean = mean
+                best_sequences = [ciphers for ciphers, _ in result]
 
-        # get the sequence associate to best mean probability
-        mean_pseudo_probs = np.array([np.mean(list(result.values())) for result in results])
-
-        return list(results[np.argmax(mean_pseudo_probs)].keys())
+        return best_sequences
 
 
 # use reflection to get the name of the computation methods that start with the following prefix

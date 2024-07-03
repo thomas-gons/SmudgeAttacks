@@ -101,6 +101,9 @@ function Home() {
     result,
     setResult] = React.useState<Result>(new Result())
 
+  const [
+    onlyComputeOrder,
+    setOnlyComputeOrder] = React.useState<boolean>(false)
 
   return (
     <div>
@@ -112,7 +115,10 @@ function Home() {
             setConfig={setConfig}
             setInProcessResult={setInProcessResult}
             result={result}
-            setResult={setResult} />
+            setResult={setResult}
+            onlyComputeOrder={onlyComputeOrder}
+            setOnlyComputeOrder={setOnlyComputeOrder}
+          />
         </div>
         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%'}}>
           <CodeUserValidation
@@ -120,6 +126,7 @@ function Home() {
             inProcessResult={inProcessResult}
             setInProcessResult={setInProcessResult}
             setResult={setResult}
+            setOnlyComputeOrder={setOnlyComputeOrder}
           />
           <ResultComponent result={result} setResult={setResult} />
         </div>

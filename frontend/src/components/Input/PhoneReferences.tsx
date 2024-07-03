@@ -42,7 +42,9 @@ interface PhoneReferencesProps {
   setConfig: React.Dispatch<React.SetStateAction<Config>>,
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>,
   result: Result,
-  setResult: React.Dispatch<React.SetStateAction<Result>>
+  setResult: React.Dispatch<React.SetStateAction<Result>>,
+  onlyComputeOrder: boolean,
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 // PhoneReferences Component
@@ -51,13 +53,14 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
   setConfig,
   setInProcessResult,
   result,
-  setResult
+  setResult,
+  onlyComputeOrder,
+  setOnlyComputeOrder,
 }) => {
 
   const [inputValue, setInputValue] = useState('');
   const [referenceLabel, setReferenceLabel] = useState<ReferenceLabel>('empty');
   const [smudgedPhoneImages, setSmudgedPhoneImages] = useState<Thumb[]>([]);
-  const [onlyComputeOrder, setOnlyComputeOrder] = useState<boolean>(false)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
 
   const handleBuildNewStatistics = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,17 +167,23 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
     const formData = new FormData();
     formData.append("sequence", result.data[result.current_source].pin_codes[0])
-    formData.append('order_guessing_algorithms', JSON.stringify(config.getSelectedOrderGuessingAlgorithms()))
-    formData.append('cipher_guess', JSON.stringify(config.order_cipher_guesses))
+    formData.append("config", JSON.stringify(config))
     setIsProcessing(true)
 
     api.post("api/update-pin-code", formData)
       .then((response: AxiosResponse) => {
         setIsProcessing(false)
-        const prevResult = result
-        prevResult.data[result.current_source].pin_codes = response.data['pin_codes']
-        setResult(prevResult)
-      })
+
+        const newData: Data = result.data[result.current_source]
+
+        newData.pin_codes = response.data['pin_codes']
+
+        setResult(prevRes => ({
+          data: {...prevRes.data, ...{[result.current_source]: newData}},
+          current_source: result.current_source,
+          nb_step: prevRes.nb_step
+        }))
+        })
       .catch((err: AxiosError) => {
         setIsProcessing(false)
 

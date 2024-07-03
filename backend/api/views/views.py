@@ -15,6 +15,7 @@ from api.views.modelWrapper import ModelWrapper
 from api.views.digitRecognition import *
 from api.views.orderGuessing import *
 from utils.cipher_to_literal import ciphers_to_literal
+from api.views.boundingBox import select_bounding_boxes
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -120,6 +121,12 @@ def find_pin_code(request: WSGIRequest) -> HttpResponse:
         return HttpResponse(f"Guessed ciphers are incompatible with the inferred ciphers", status=422)
 
     most_likely_pin_codes = OrderGuessing.case_handler(ciphers, order_guessing_algorithms, order_cipher_guesses)
+    final_bboxes = select_bounding_boxes(
+        [int(cipher) for cipher in most_likely_pin_codes[0]],
+        ciphers[:, 0].tolist(),
+        bboxes,
+        [BoundingBox(ref_bb) for ref_bb in refs_bboxes]
+    )
 
     response = {
         'image': b64_img,
@@ -127,7 +134,7 @@ def find_pin_code(request: WSGIRequest) -> HttpResponse:
         'filename': filename,
         'reference': ref,
         'ref_bboxes': refs_bboxes,
-        'inferred_bboxes': [bb.xywh() for bb in bboxes],
+        'inferred_bboxes': [f_bb.xywh() for f_bb in final_bboxes],
     }
     return HttpResponse(json.dumps(response), content_type="application/json", status=200)
 
@@ -141,11 +148,11 @@ def find_pin_code_manual_corrected_inference(request: WSGIRequest) -> HttpRespon
     order_guessing_algorithms = user_config['order_guessing_algorithms']
     order_cipher_guesses = user_config['order_cipher_guesses']
 
-    ciphers = [(cipher, 1.0) for cipher in new_ciphers]
+    ciphers = np.array(new_ciphers)
     most_likely_pin_codes = OrderGuessing.process(ciphers, order_guessing_algorithms, order_cipher_guesses)
 
     response = {
-        'pin_codes': most_likely_pin_codes,
+        'pin_codes': [pin[0] for pin in most_likely_pin_codes],
         'bboxes': [bb[1] for bb in bboxes]
     }
 
@@ -154,13 +161,14 @@ def find_pin_code_manual_corrected_inference(request: WSGIRequest) -> HttpRespon
 
 @csrf_exempt
 def update_pin_code(request: WSGIRequest) -> HttpResponse:
-    sequence = request.POST.get('sequence').split('-')
-    formatted_sequence = [(cipher, 1.0) for cipher in sequence]
-    cipher_guess = request.POST.get('cipher_guess').split(',')
-    cipher_guessing_algorithms = request.POST.get('order_guessing_algorithms').split(',')
-    most_likely_pin_codes = OrderGuessing.process(formatted_sequence, cipher_guessing_algorithms, cipher_guess)
+    sequence = request.POST.get('sequence')
+    ciphers = np.array([int(cipher) for cipher in sequence])
+    user_config = json.loads(request.POST.get('config'))
+    order_guessing_algorithms = user_config['order_guessing_algorithms']
+    order_cipher_guesses = user_config['order_cipher_guesses']
+    most_likely_pin_codes = OrderGuessing.process(ciphers, order_guessing_algorithms, order_cipher_guesses)
     response = {
-        'pin_codes': most_likely_pin_codes
+        'pin_codes': [pin[0] for pin in most_likely_pin_codes]
     }
     return HttpResponse(json.dumps(response), content_type="application/json", status=200)
 

@@ -1,19 +1,24 @@
 import os
-
-import numpy as np
+from tqdm import tqdm
 from typing import *
 
-from tqdm import tqdm
-import inflect
+import random
+import numpy as np
 
-p = inflect.engine()
+from utils.cipher_to_literal import ciphers_to_literal
 
 
 class StatsBuilder:
     symbols = '0123456789'
     all_pins_dict = {}
 
-    def __init__(self, filename: Optional[str] = None, file_buffer: Optional[BinaryIO] = None, expected_pin_len: int = 6):
+    def __init__(
+            self,
+            filename: Optional[str] = None,
+            file_buffer: Optional[BinaryIO] = None,
+            expected_pin_len: int = 6
+    ):
+
         if filename is None and file_buffer is None:
             raise ValueError("Either filename or file_buffer must be provided")
 
@@ -36,10 +41,11 @@ class StatsBuilder:
             self.all_pins[int(pin)] += 1
 
         for i in range(symbols_product_space):
-            if self.all_pins_dict.get(i) is None:
+            pin_code = str(i).zfill(self.pin_len)
+            if self.all_pins_dict.get(pin_code) is None:
                 self.all_pins[i] = 1
+                self.all_pins_dict[pin_code] = 1
 
-        self.all_pins[np.where(self.all_pins == 0)] = 1
         self.sample_size = int(self.all_pins.sum())
 
     def __compute_frequencies(self) -> np.ndarray:
@@ -65,13 +71,27 @@ class StatsBuilder:
         return markov_chain_transition
 
     def save_stats(self):
-        path = f'assets/stats/{p.number_to_words(self.pin_len)}_symbols/'
+        path = f'assets/stats/{ciphers_to_literal[self.pin_len]}_symbols/'
         os.makedirs(path, exist_ok=True)
         self.__compute_frequencies().dump(path + "frequenciesDump")
         self.__compute_prob_by_index().dump(path + "probByIndexDump")
         self.__compute_markov_chain_transitions().dump(path + "markovChainTransitionMatDump")
 
+    @staticmethod
+    def get_pin_codes_acc_freq(n: int, pin_length: int = 6) -> List[str]:
+        f = np.load(f"../assets/stats/{ciphers_to_literal[pin_length]}_symbols/frequenciesDump", allow_pickle=True)
+
+        intervals = np.cumsum(f)
+
+        pin_codes = []
+        for i in range(n):
+            t = random.random()
+            pos = np.searchsorted(intervals, t, side='right')
+            pin_codes.append(str(pos).zfill(pin_length))
+
+        return pin_codes
+
 
 if __name__ == '__main__':
-    sb = StatsBuilder('/home/thomas/PycharmProjects/test/RockYou-6-digit.txt')
-    sb.save_stats()
+    for pin_code in StatsBuilder.get_pin_codes_acc_freq(40):
+        print(pin_code)

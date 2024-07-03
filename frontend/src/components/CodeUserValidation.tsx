@@ -29,13 +29,15 @@ interface CodeUserValidationProps {
   inProcessResult: InProcessResult;
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>;
   setResult: React.Dispatch<React.SetStateAction<Result>>;
+  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   config,
   inProcessResult,
   setInProcessResult,
-  setResult
+  setResult,
+  setOnlyComputeOrder
 }) => {
 
   if (inProcessResult.image === "") {
@@ -110,6 +112,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
             pin_codes: response.data['pin_codes']
           };
 
+          setOnlyComputeOrder(true);
           setResult(prevRes => ({
             data: {...prevRes.data, ...{[inProcessResult.filename]: data}},
             current_source: inProcessResult.filename,

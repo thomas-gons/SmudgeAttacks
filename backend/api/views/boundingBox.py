@@ -84,3 +84,24 @@ class BoundingBox:
         union_area = union_w * union_h
 
         return inter_area / union_area
+
+
+def select_bounding_boxes(
+        ciphers: List[int],
+        inferred_ciphers: List[int],
+        inferred_bboxes: List[BoundingBox],
+        reference_bboxes: List[BoundingBox]
+) -> List[BoundingBox]:
+
+    bboxes = []
+
+    for i, cipher in enumerate(ciphers):
+        if cipher in inferred_ciphers:
+            bbox = inferred_bboxes[inferred_ciphers.index(cipher)]
+            bboxes.append(bbox)
+            inferred_ciphers.remove(cipher)
+            inferred_bboxes.remove(bbox)
+        else:
+            bboxes.append(reference_bboxes[cipher])
+
+    return bboxes

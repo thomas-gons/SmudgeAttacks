@@ -30,9 +30,9 @@ const canvasDim = [450, 450]
 const inputWidth = [640, 640];
 
 const ResultComponent: React.FC<ResultComponentProps> = ({
-                                                           result,
-                                                           setResult,
-                                                         }) => {
+  result,
+  setResult,
+}) => {
 
   const theme = useTheme();
   const [activeStep, setActiveStep] = React.useState<number>(0)
