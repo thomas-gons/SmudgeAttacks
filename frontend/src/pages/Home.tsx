@@ -20,15 +20,6 @@ export class Config {
     return Object.keys(this.order_guessing_algorithms).filter(algo => this.order_guessing_algorithms[algo])
   }
 
-  resetOrderGuessingAlgorithms = () => {
-    for (const algo in this.order_guessing_algorithms) {
-      this.order_guessing_algorithms[algo] = true
-    }
-  }
-
-  resetCipherGuess = () => {
-    this.order_cipher_guesses = Array.from({length: this.pin_length}, () => '')
-  }
 }
 
 export class InProcessResult {
@@ -72,16 +63,19 @@ export class Result {
   data: { [source: string]: Data };
   current_source: string;
   nb_step: number;
+  display: boolean;
 
   constructor (
     data: { [source: string]: Data } = {},
     current_source: string = '',
-    nb_step: number = 0
+    nb_step: number = 0,
+    display: boolean= false
   ) {
 
     this.data = data;
     this.current_source = current_source;
     this.nb_step = nb_step;
+    this.display = display;
   }
 }
 
@@ -101,14 +95,38 @@ function Home() {
     result,
     setResult] = React.useState<Result>(new Result())
 
-  const [
-    onlyComputeOrder,
-    setOnlyComputeOrder] = React.useState<boolean>(false)
+  const currentResult = () => {
+    if (inProcessResult.image) {
+      return (
+        <CodeUserValidation
+          config={config}
+          inProcessResult={inProcessResult}
+          setInProcessResult={setInProcessResult}
+          setResult={setResult}
+        />
+      )
+    } else if (result.display) {
+      return (
+        <ResultComponent result={result} setResult={setResult} />
+      )
+    } else {
+      return (
+        <div style={{
+          width: '80%', height: '80%', display: 'flex',
+          justifyContent: 'center', alignItems: 'center',
+          border: '1px solid #ddd', borderRadius: 5,
+          color: 'rgb(105, 105, 105)'
+      }}>
+          Result will be displayed here
+        </div>
+      )
+    }
+  }
 
   return (
-    <div>
+    <div style={{display: 'block', height: '85vh'}}>
       <Navbar/>
-      <div style={{marginTop: '30px', marginLeft: '30px', display: 'flex', justifyContent: 'space-between'}}>
+      <div style={{marginTop: '30px', marginLeft: '30px', height: '100%', display: 'flex', justifyContent: 'space-between'}}>
         <div style={{width: '60%'}}>
           <PhoneReferences
             config={config}
@@ -116,19 +134,12 @@ function Home() {
             setInProcessResult={setInProcessResult}
             result={result}
             setResult={setResult}
-            onlyComputeOrder={onlyComputeOrder}
-            setOnlyComputeOrder={setOnlyComputeOrder}
           />
         </div>
-        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%'}}>
-          <CodeUserValidation
-            config={config}
-            inProcessResult={inProcessResult}
-            setInProcessResult={setInProcessResult}
-            setResult={setResult}
-            setOnlyComputeOrder={setOnlyComputeOrder}
-          />
-          <ResultComponent result={result} setResult={setResult} />
+        <div
+          style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%'}}
+        >
+          {currentResult()}
         </div>
       </div>
 

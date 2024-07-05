@@ -38,14 +38,11 @@ interface Thumb extends File {
 interface SmudgedPhoneInputProps {
   smudgedPhoneImages: Thumb[];
   setSmudgedPhoneImages: React.Dispatch<React.SetStateAction<Thumb[]>>;
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>;
-
 }
 
 const SmudgedPhoneInput: React.FC<SmudgedPhoneInputProps> = ({
   smudgedPhoneImages,
   setSmudgedPhoneImages,
-  setOnlyComputeOrder
 }) => {
 
   return (
@@ -73,14 +70,16 @@ const SmudgedPhoneInput: React.FC<SmudgedPhoneInputProps> = ({
             setSmudgedPhoneImages(acceptedFiles.map(file => Object.assign(file, {
               preview: URL.createObjectURL(file),
             })));
-            setOnlyComputeOrder(false)
           }}
         />
       </Button>
       <aside style={thumbsContainer}>
        {smudgedPhoneImages.map(image => (
         <div style={thumbElement} key={image.name}>
-           <div style={thumbInner}>
+           <div style={thumbInner} onClick={() => {
+             const url = URL.createObjectURL(image)
+             window.open(url, '_blank')
+           }}>
              <img src={image.preview} alt={image.name} style={imgStyle} onLoad={() => URL.revokeObjectURL(image.preview)}/>
            </div>
          </div>

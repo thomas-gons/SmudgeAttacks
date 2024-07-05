@@ -20,8 +20,6 @@ interface ConfigAndGuessProps {
   setConfig: React.Dispatch<React.SetStateAction<Config>>
 }
 
-
-
 const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
   config,
   setConfig
@@ -139,9 +137,14 @@ const ConfigAndGuess: React.FC<ConfigAndGuessProps> = ({
           <div style={{position: 'absolute', right: 0, bottom: '-10px'}}>
             <Button
               onClick={() => {
-                config.resetCipherGuess();
-                config.resetOrderGuessingAlgorithms()
-                setConfig({...config})
+                setConfig({
+                  ...config,
+                  order_cipher_guesses: Array(config.pin_length).fill(''),
+                  order_guessing_algorithms: Object.keys(config.order_guessing_algorithms).reduce((acc, algo) => {
+                    acc[algo] = true;
+                    return acc;
+                  }, {} as { [algorithm: string]: boolean })
+                })
               }}
             >
               Reset

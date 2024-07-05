@@ -1,7 +1,7 @@
 .idea/
 backend/venv/
 backend/.idea/
-backend/assets/images/
+backend/resources/images/
 backend/backend/__pycache__/
 backend/api/__pycache__/
 backend/api/views/__pycache__/

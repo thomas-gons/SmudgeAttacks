@@ -45,7 +45,8 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
     setResult(prevResult => ({
       data: prevResult.data,
       current_source: keys[nextIndex],
-      nb_step: prevResult.nb_step
+      nb_step: prevResult.nb_step,
+      display: true
     }))
   };
 
@@ -57,7 +58,8 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
     setResult(prevResult => ({
       data: prevResult.data,
       current_source: keys[prevIndex],
-      nb_step: prevResult.nb_step
+      nb_step: prevResult.nb_step,
+      display: true,
     }))
   };
 
@@ -69,21 +71,20 @@ const ResultComponent: React.FC<ResultComponentProps> = ({
       setResult(prevResult => ({
         data: prevResult.data,
         current_source: keys[0],
-        nb_step: prevResult.nb_step - 1
+        nb_step: prevResult.nb_step - 1,
+        display: true,
       }));
     } else {
       setResult({
         data: {},
         current_source: '',
-        nb_step: 0
+        nb_step: 0,
+        display: false
       })
     }
     setActiveStep(0);
     displayStatus("Result from " + prevcurrent_source + "has been deleted", "success")
   }
-
-  if (result.current_source === "" || Object.keys(result.data).length === 0)
-    return;
 
   const res: Data = result.data[result.current_source]
   console.log(res)

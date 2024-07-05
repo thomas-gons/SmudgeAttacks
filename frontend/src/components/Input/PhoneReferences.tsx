@@ -44,7 +44,6 @@ interface PhoneReferencesProps {
   result: Result,
   setResult: React.Dispatch<React.SetStateAction<Result>>,
   onlyComputeOrder: boolean,
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 // PhoneReferences Component
@@ -54,8 +53,6 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
   setInProcessResult,
   result,
   setResult,
-  onlyComputeOrder,
-  setOnlyComputeOrder,
 }) => {
 
   const [inputValue, setInputValue] = useState('');
@@ -123,14 +120,17 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
             setResult(prevRes => ({
               data: {...prevRes.data, ...{[filename]: data}},
               current_source: filename,
-              nb_step: prevRes.nb_step + 1
+              nb_step: prevRes.nb_step + 1,
+              display: true
             }));
 
-            setOnlyComputeOrder(true)
             displayStatus(`The image "${filename}" has been correctly processed`, 'success')
           } else if (response.status === 206) {
 
-            setResult(new Result())
+            setResult({
+              ...result,
+              display: false
+            })
             const newInProcessResult: InProcessResult = {
               reference: inputValue,
               filename: response.data['filename'],
@@ -181,8 +181,10 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
         setResult(prevRes => ({
           data: {...prevRes.data, ...{[result.current_source]: newData}},
           current_source: result.current_source,
-          nb_step: prevRes.nb_step
+          nb_step: prevRes.nb_step,
+          display: true
         }))
+        displayStatus('The PIN code has been successfully updated', 'success')
         })
       .catch((err: AxiosError) => {
         setIsProcessing(false)
@@ -229,7 +231,7 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
 
   return (
     <div>
-      <CodeLengthSlider config={config} setConfig={setConfig} setOnlyComputeOrder={setOnlyComputeOrder}/>
+      <CodeLengthSlider config={config} setConfig={setConfig}/>
       <ReferenceHandler
         inputValue={inputValue} setInputValue={setInputValue}
         referenceLabel={referenceLabel} setReferenceLabel={setReferenceLabel}
@@ -237,13 +239,14 @@ const PhoneReferences: React.FC<PhoneReferencesProps> = ({
       />
       <SmudgedPhoneInput
         smudgedPhoneImages={smudgedPhoneImages} setSmudgedPhoneImages={setSmudgedPhoneImages}
-        setOnlyComputeOrder={setOnlyComputeOrder}
       />
       <ConfigAndGuess config={config} setConfig={setConfig}/>
-      <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
+      <div style={{display: 'flex', alignItems: 'center', margin: '40px 0'}}>
         <Button
           variant="contained"
-          onClick={(!onlyComputeOrder) ? handleUploadSmudgeTraces : handleUpdatePINCode}
+          onClick={() => {
+            result.data[smudgedPhoneImages[0].name] ? handleUpdatePINCode() : handleUploadSmudgeTraces()
+          }}
           startIcon={<CloudUploadIcon/>}
         >
           Process Smudge Traces

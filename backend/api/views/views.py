@@ -61,6 +61,32 @@ class PhoneReferences(APIView):
         }
         return HttpResponse(json.dumps(response), content_type='application/json', status=201)
 
+    def put(self, request, pk):
+        ref = request.POST.get('ref')
+        image = preprocess_image(request.FILES['phone'])
+
+        image = model_wrapper.segment_phone(image)
+        if image is None:
+            return HttpResponse(status=422)
+
+        bboxes = DigitRecognition(img=image).process_data()
+
+        ref_m = ReferenceModel.objects.get(id=pk)
+
+        BoundingBoxModel.objects.filter(ref=ref_m).delete()
+        for i, bb in enumerate(bboxes):
+            BoundingBoxModel.objects.update_or_create(
+                ref=ref_m, cipher=i, defaults={'x': bb.x, 'y': bb.y, 'w': bb.w, 'h': bb.h}
+            )
+
+        response = {
+            'image': get_b64_img_from_np_array(image),
+            'bboxes': [bb.xywh() for bb in bboxes],
+            'ref': ref,
+            'id': ref_m.id
+        }
+        return HttpResponse(json.dumps(response), content_type='application/json', status=201)
+
     @staticmethod
     def delete(request, pk):
         ReferenceModel.objects.filter(id=pk).delete()

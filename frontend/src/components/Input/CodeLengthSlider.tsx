@@ -6,13 +6,11 @@ import {Config} from "../../pages/Home";
 interface CodeLengthSliderProps {
   config: Config,
   setConfig: React.Dispatch<React.SetStateAction<Config>>
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
   config,
   setConfig,
-  setOnlyComputeOrder
 }) => {
 
   return (
@@ -38,7 +36,6 @@ const CodeLengthSlider: React.FC<CodeLengthSliderProps> = ({
           pin_length: newPinLength,
           order_cipher_guesses: newCipherGuess
         });
-        setOnlyComputeOrder(false)
       }}
       valueLabelDisplay="on"
       shiftStep={1}

@@ -3,13 +3,16 @@ import {TextField, Button, Badge} from "@mui/material";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CheckIcon from "@mui/icons-material/Check";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import RemoveIcon from "@mui/icons-material/Remove";
+import RefreshIcon from '@mui/icons-material/Refresh';
+import PreviewIcon from '../Icons/PreviewIcon';
 import api from "../../api";
 import React from "react";
 import {closeStatus, displayStatus} from '../Status'
 import {styled} from "@mui/material/styles";
 import {Config} from "../../pages/Home";
 import {AxiosError, AxiosResponse} from "axios";
-
+import {randomUUID} from "node:crypto";
 
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
@@ -116,6 +119,24 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
       });
   };
 
+  const handleUpdateReference= (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files === null) {
+      return
+    }
+    const formData = new FormData();
+    formData.append('ref', inputValue);
+    formData.append('phone', event.target.files[0]);
+
+    api.put("/api/phone-references/" + phoneReferences[inputValue], formData)
+      .then((response: AxiosResponse) => {
+        if (response.status === 201) {
+          setInputValue("");
+          setReferenceLabel("empty")
+          displayStatus(inputValue + ' reference updated successfully!', 'success');
+        }
+      })
+  }
+
   const handleDeleteReference = () => {
     api.delete("/api/phone-references/" + phoneReferences[inputValue])
       .then((response: AxiosResponse) => {
@@ -150,9 +171,8 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
         component="label"
         variant="contained"
         startIcon={<CloudUploadIcon/>}
-        style={{marginLeft: "20px", minWidth: 'fit-content'}}
+        style={{marginLeft: "20px"}}
       >
-        Add new reference
         <VisuallyHiddenInput
           type="file"
           accept=".jpg, .jpeg, .png, .webp"
@@ -161,13 +181,53 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
       </Button>
     )}
     {referenceLabel === 'known' && (
-      <Button
-        component="label"
-        variant="contained"
-        sx={{marginLeft: '20px', minWidth: 'fit-content'}}
-        onClick={() => {
-          displayStatus('Do you really want to delete ' + inputValue, 'info',
-            (<Button
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginLeft: '20px',
+          minWidth: '50px',
+          padding: '0 10px',
+          borderRadius: '5px',
+          backgroundColor: '#1976d2',
+        }}
+      >
+        <PreviewIcon
+          width={"18px"}
+          height={"18px"}
+          onClick={() => {
+            const input = document.getElementById("previewReference")
+            if (input) input.click()
+          }}
+        />
+         <VisuallyHiddenInput
+            type="file"
+            accept=".jpg"
+            id="previewReference"
+            onChange={() => {}}
+          />
+        <RefreshIcon
+          sx={{color: "white"}}
+          onClick={() => {
+            const input = document.getElementById("updateReference")
+            console.log(input)
+            if (input) input.click()
+        }}
+        />
+         <VisuallyHiddenInput
+            type="file"
+            accept=".jpg"
+            id="updateReference"
+            onChange={(e) => {
+              handleUpdateReference(e)
+            }}
+          />
+        <RemoveIcon
+          sx={{color: "white"}}
+          onClick={() => {
+            displayStatus('Do you really want to delete ' + inputValue, 'info',
+              (<Button
                 variant={"contained"}
                 style={{
                   justifyContent: 'space-between',
@@ -186,9 +246,9 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
                 >
                 </Badge>
               </Button>), {autoHideDuration: null})
-        }}
-      > Delete reference
-      </Button>
+          }}
+        />
+      </div>
     )}
   </div>
   )

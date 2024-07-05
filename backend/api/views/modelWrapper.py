@@ -31,7 +31,7 @@ class ModelWrapper:
         dst_points = np.array([
                  [0, 0],
                  [config["width"], 0],
-                 [0, config["width"]],
+                 [0, config["height"]],
                  [config["width"], config["height"]]
             ], dtype=np.float32)
 
@@ -139,5 +139,7 @@ class ModelWrapper:
         # set the vertices into the following order: top left, top right, bottom right, bottom left
         intersects = np.array(intersects)
         distances = np.linalg.norm(intersects, axis=1)
-        intersects = intersects[np.argsort(distances)]
+        top_left = intersects[np.argmin(distances)]
+        distances_from_top_left = np.linalg.norm(intersects - top_left, axis=1)
+        intersects = intersects[np.argsort(distances_from_top_left)]
         return intersects

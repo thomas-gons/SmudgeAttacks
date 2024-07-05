@@ -71,7 +71,7 @@ class StatsBuilder:
         return markov_chain_transition
 
     def save_stats(self):
-        path = f'assets/stats/{ciphers_to_literal[self.pin_len]}_symbols/'
+        path = f'resources/stats/{ciphers_to_literal[self.pin_len]}_symbols/'
         os.makedirs(path, exist_ok=True)
         self.__compute_frequencies().dump(path + "frequenciesDump")
         self.__compute_prob_by_index().dump(path + "probByIndexDump")
@@ -79,7 +79,7 @@ class StatsBuilder:
 
     @staticmethod
     def get_pin_codes_acc_freq(n: int, pin_length: int = 6) -> List[str]:
-        f = np.load(f"../assets/stats/{ciphers_to_literal[pin_length]}_symbols/frequenciesDump", allow_pickle=True)
+        f = np.load(f"../resources/stats/{ciphers_to_literal[pin_length]}_symbols/frequenciesDump", allow_pickle=True)
 
         intervals = np.cumsum(f)
 

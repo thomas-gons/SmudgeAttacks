@@ -23,13 +23,18 @@ interface LayoutData {
   alpha: number;
 }
 
+interface InferredValidation {
+  unselected: number[];
+  selected: number[];
+}
+
+type InferredValidationDict = { [cipher: number]: InferredValidation };
 
 interface CodeUserValidationProps {
   config: Config;
   inProcessResult: InProcessResult;
   setInProcessResult: React.Dispatch<React.SetStateAction<InProcessResult>>;
   setResult: React.Dispatch<React.SetStateAction<Result>>;
-  setOnlyComputeOrder: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
@@ -37,23 +42,34 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
   inProcessResult,
   setInProcessResult,
   setResult,
-  setOnlyComputeOrder
 }) => {
 
-  if (inProcessResult.image === "") {
-    return <div style={{visibility: 'hidden'}}></div>
-  }
-
   const [isSwapped, setIsSwapped] = React.useState<boolean>(false);
-  const [unselected_inferred_bboxes, setUnselected_inferred_bboxes] = React.useState<number[]>(
-    Array.from({ length: 10 }, (_, index) => (inProcessResult.inferred_ciphers.includes(index) ? 0 : -1))
+  const [inferred_validation_dict, setInferredValidationDict] = React.useState<InferredValidationDict>(
+    inProcessResult.inferred_ciphers.reduce((acc: InferredValidationDict, item: number) => {
+      acc[item] = {
+        unselected: [],
+        selected: inProcessResult.inferred_bboxes.reduce((selectedIndices: number[], bbox, i) => {
+          if (inProcessResult.inferred_ciphers[i] === item) {
+            selectedIndices.push(i);
+          }
+          return selectedIndices;
+        }, [])
+      };
+      return acc;
+    }, {})
   );
-  const [selected_reference_bboxes, setSelected_reference_bboxes] = React.useState<number[]>(
-    inProcessResult.refs_bboxes.map((_, index) => (inProcessResult.inferred_ciphers.includes(index) ? 1 : 0))
+
+  const [selected_reference_bboxes, setSelectedReferenceBboxes] = React.useState<number[]>(
+    Array.from({length: 10}, (_, index) => (
+      inProcessResult.refs_bboxes.filter((_, i) =>
+        inProcessResult.inferred_ciphers[i] === index).length
+      )
+    )
   );
 
   const validation = () => {
-    const checkNewCipherCount = selected_reference_bboxes.reduce((acc, item) => acc + item, 0);
+    const checkNewCipherCount = Object.values(selected_reference_bboxes).reduce((acc, item) => acc + item, 0);
     if (checkNewCipherCount > inProcessResult.expected_pin_length) {
       displayStatus('The number of ciphers exceeds the expected pin length', 'warning');
       return;
@@ -68,21 +84,20 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
 
   const handler = () => {
 
-    const new_ciphers = selected_reference_bboxes.flatMap((item: number, index: number) => {
-      return Array(item).fill(index);
-    });
+    const new_ciphers = Object.entries(selected_reference_bboxes)
+      .flatMap(([index, repCount]) => Array(repCount).fill(Number(index)));
 
     const mapping_cipher_bboxes = []
 
     // loop over the selected_reference_bboxes
     for (const cipher of new_ciphers) {
-
-      if (unselected_inferred_bboxes[cipher] === 0) {
+      if (inferred_validation_dict[cipher] !== undefined && inferred_validation_dict[cipher].selected.length > 0) {
+        const bbox_index = inferred_validation_dict[cipher].selected.pop()
+        if (bbox_index === undefined) return;
         mapping_cipher_bboxes.push([
           cipher,
-          inProcessResult.inferred_bboxes[inProcessResult.inferred_ciphers.indexOf(cipher)]
+          inProcessResult.inferred_bboxes[bbox_index]
         ])
-        unselected_inferred_bboxes[cipher] = -1
       } else if (selected_reference_bboxes[cipher]) {
         mapping_cipher_bboxes.push([
           cipher,
@@ -112,11 +127,11 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
             pin_codes: response.data['pin_codes']
           };
 
-          setOnlyComputeOrder(true);
           setResult(prevRes => ({
             data: {...prevRes.data, ...{[inProcessResult.filename]: data}},
             current_source: inProcessResult.filename,
-            nb_step: prevRes.nb_step + 1
+            nb_step: prevRes.nb_step + 1,
+            display: true
           }));
         }
       })
@@ -192,16 +207,19 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       </div>
     ),
 
-    selected_color: 'rgb(255, 255, 0)',
-    unselected_color: 'rgb(255, 0, 0)',
+    selected_color: 'rgb(255, 0, 0)',
+    unselected_color: 'rgb(255, 255, 0)',
     alpha: (isSwapped ? 1.0 : alphaHiddenLike),
 
   }
 
   const ref_bboxes = () => {
-    return (
-      inProcessResult.refs_bboxes.map((bbox: number[], index: number) => (
-        <BoundingBox
+    const bboxes = []
+    for (const [index, bbox] of inProcessResult.refs_bboxes.entries()) {
+        let current_rep_count = selected_reference_bboxes[index];
+        const min_rep_count = inferred_validation_dict[index] ? inferred_validation_dict[index].selected.length : 0;
+        bboxes.push(
+          <BoundingBox
           bbox={bbox}
           key={index}
           ratio={ratio}
@@ -210,62 +228,79 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
           }
           alpha={ref_layout_data.alpha}
           onClick={(e) => {
+            if (isSwapped) return
+
             switch (e.evt.button) {
               case 0: // right click => increase count
-                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
-                  (i === index && item < inProcessResult.expected_pin_length) ? item + 1 : item
-                ))); break;
+                if (current_rep_count < inProcessResult.expected_pin_length) {
+                  current_rep_count += 1
+                }
+                break;
               case 1: // middle click => reset count to 0 or 1 if it's an inferred cipher not removed
-                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
-                  (i !== index) ? item:
-                    unselected_inferred_bboxes[index] === 0 ? 1 : 0
-                ))); break;
+                  current_rep_count = min_rep_count
+                break;
               case 2: // left click => decrease count
-                setSelected_reference_bboxes(selected_reference_bboxes.map((item: number, i: number) => (
-                  i !== index ? item:
-                    item > 1 ? item - 1:
-                      unselected_inferred_bboxes[index] === 0 ? 1 : 0
-
-                ))); break;
-            }
+                if (current_rep_count > min_rep_count)
+                  current_rep_count -= 1
+                break;
+              }
+            setSelectedReferenceBboxes({
+              ...selected_reference_bboxes,
+              [index]: current_rep_count
+            })
           }}
         />
-      ))
-    )
+      )
+    }
+    return bboxes;
   }
 
   const inferred_bboxes = () => {
-
-    return (
-      inProcessResult.inferred_bboxes.map((bbox: number[], index: number) => (
+    const bboxes = []
+    for (const [index, cipher] of inProcessResult.inferred_ciphers.entries()) {
+      const bbox = inProcessResult.inferred_bboxes[index]
+      const selected = inferred_validation_dict[cipher].selected.includes(index)
+      const inferred_validation = inferred_validation_dict[cipher]
+      bboxes.push(
         <BoundingBox
           bbox={bbox}
           key={index}
           ratio={ratio}
-          strokeColor={unselected_inferred_bboxes[inProcessResult.inferred_ciphers[index]] == 1 ?
-            inferred_layout_data.selected_color: inferred_layout_data.unselected_color
+          strokeColor={selected ?
+            inferred_layout_data.selected_color : inferred_layout_data.unselected_color
           }
           alpha={inferred_layout_data.alpha}
           onClick={() => {
             if (!isSwapped) return;
 
-            setSelected_reference_bboxes(
-              selected_reference_bboxes.map((item: number, i: number) => (
-                i !== inProcessResult.inferred_ciphers[index] ? item:
-                  unselected_inferred_bboxes[inProcessResult.inferred_ciphers[index]] === 0 ? item - 1:
-                    item < 6 ? item + 1: item
-              ))
-            );
+            let reference_rep_count = selected_reference_bboxes[cipher];
+            if (!selected) {
+              reference_rep_count = Math.min(reference_rep_count + 1, inProcessResult.expected_pin_length);
+            } else {
+              reference_rep_count -= 1;
+            }
+            setSelectedReferenceBboxes({
+              ...selected_reference_bboxes,
+              [cipher]: reference_rep_count
+            });
 
-            setUnselected_inferred_bboxes(
-              unselected_inferred_bboxes.map((item: number, i: number) => (
-                i === inProcessResult.inferred_ciphers[index] ? (item === 0 ? 1 : 0) : item
-              ))
-            );
+            if (selected) {
+              inferred_validation.unselected.push(index);
+              inferred_validation.selected = inferred_validation.selected.filter((item) => item !== index);
+            } else {
+              inferred_validation.unselected = inferred_validation.unselected.filter((item) => item !== index);
+              inferred_validation.selected.push(index);
+            }
+
+            setInferredValidationDict({
+              ...inferred_validation_dict,
+              [cipher]: inferred_validation
+            });
           }}
         />
-      ))
-    );
+      )
+    }
+    return bboxes;
   }
 
   const repetition = () => {
@@ -302,7 +337,7 @@ const CodeUserValidation: React.FC<CodeUserValidationProps> = ({
       ))
   }
 
-  const       bboxes: React.JSX.Element[][] = isSwapped ? [ref_bboxes(), inferred_bboxes()] : [inferred_bboxes(), ref_bboxes(), repetition()];
+  const bboxes: React.JSX.Element[][] = isSwapped ? [ref_bboxes(), inferred_bboxes()] : [inferred_bboxes(), ref_bboxes(), repetition()];
 
   const helper = () => {
     const layout_data: LayoutData = isSwapped ? inferred_layout_data : ref_layout_data;
