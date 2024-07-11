@@ -10,6 +10,7 @@ from api.models import ReferenceModel, BoundingBoxModel
 from api.config import config
 from api.views.boundingBox import BoundingBox
 from api.views.pyplotWrapper import PyplotWrapper
+from matplotlib import pyplot as plt
 
 
 class DigitRecognition:
@@ -48,6 +49,7 @@ class DigitRecognition:
 
         # edge detection using canny
         self.images_edges = cv2.Canny(self.image, self.canny_thresholds[0], self.canny_thresholds[1])
+
         contours, _ = cv2.findContours(self.images_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = np.vstack(contours).squeeze()
 
@@ -72,6 +74,7 @@ class DigitRecognition:
         Retain the centroids of the ones that respect those criteria
         """
         centroids = []
+        plt.imshow(self.images_edges)
         for cluster in clusters:
             cluster = np.array(cluster)
             # get the bounding box
@@ -153,13 +156,15 @@ class DigitRecognition:
         h = np.mean(r_distances[1:3])
         w = np.mean(r_distances[3:5])
 
+
         # adjust all centroids for better alignment and create bounding boxes
         adj_centroids = r_center + DigitRecognition.pin_layout * [w, h]
+
         bboxes = [BoundingBox(
-            adj_b[0] - self.bbox_padding[0],
-            adj_b[1] - self.bbox_padding[1],
-            self.bbox_padding[0] * 2,
-            self.bbox_padding[1] * 2
+            adj_b[0] - w/3,
+            adj_b[1] - h/2,
+            2*w/3,
+            h
         ) for adj_b in adj_centroids]
 
         # 0's bounding box is at the end thus we reposition it

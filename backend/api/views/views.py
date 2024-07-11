@@ -1,5 +1,6 @@
 from django.http import HttpResponse
 from django.contrib.auth.models import User
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
 
@@ -46,7 +47,10 @@ class PhoneReferences(APIView):
             return HttpResponse(status=422)
 
         bboxes = DigitRecognition(img=image).process_data()
-
+        pw = PyplotWrapper(True)
+        pw.plot_image(image)
+        pw.plot_bounding_boxes(bboxes)
+        pw.show()
         ref_m = ReferenceModel.objects.create(ref=reference)
         ref_m.save()
         for i, bb in enumerate(bboxes):
@@ -120,6 +124,7 @@ def find_pin_code(request: WSGIRequest) -> HttpResponse:
     b64_img = get_b64_img_from_np_array(seg_img)
 
     bboxes = model_wrapper.detect_smudge(seg_img, filename)
+
     ciphers, refs_bboxes = guess_ciphers(bboxes, ref)
 
     if len(ciphers) != new_pin_length and user_config['inference_correction'] == 'manual':
@@ -210,3 +215,5 @@ def build_statistics(request: WSGIRequest) -> HttpResponse:
 
     return HttpResponse(f"Statistics for PIN code of {ciphers_to_literal[pin_length]} "
                         f"symbols has been correctly generated.", status=201)
+
+

@@ -25,8 +25,11 @@ class ModelWrapper:
         polygon = np.array(results[0].masks.xy[0])
 
         # reduce mask to a quad and refine it
-        vertices = self.approx_mask_to_polygon(polygon)
-
+        vertices = self.approx_mask_to_polygon(image, polygon)
+        from matplotlib import pyplot as plt
+        plt.imshow(image)
+        plt.scatter(vertices[:, 0], vertices[:, 1])
+        plt.show()
         # deform the original image with this quad
         dst_points = np.array([
                  [0, 0],
@@ -94,7 +97,7 @@ class ModelWrapper:
 
         return slopes, intercepts
 
-    def approx_mask_to_polygon(self, vertices: np.ndarray) -> np.ndarray:
+    def approx_mask_to_polygon(self, image: np.ndarray, vertices: np.ndarray) -> np.ndarray:
         """
         Given the mask from the segmentation model we want to simplify
         it to a quad with a good approximation of the corners

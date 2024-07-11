@@ -2,17 +2,15 @@ import Autocomplete from "@mui/material/Autocomplete";
 import {TextField, Button, Badge} from "@mui/material";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CheckIcon from "@mui/icons-material/Check";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import RemoveIcon from "@mui/icons-material/Remove";
+import AddIcon from "@mui/icons-material/Add";
+import CloseIcon from "@mui/icons-material/Close";
 import RefreshIcon from '@mui/icons-material/Refresh';
-import PreviewIcon from '../Icons/PreviewIcon';
 import api from "../../api";
 import React from "react";
 import {closeStatus, displayStatus} from '../Status'
 import {styled} from "@mui/material/styles";
 import {Config} from "../../pages/Home";
 import {AxiosError, AxiosResponse} from "axios";
-import {randomUUID} from "node:crypto";
 
 type ReferenceLabel = 'empty' | 'known' | 'unknown'
 
@@ -167,18 +165,36 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
       freeSolo
     />
     {referenceLabel === 'unknown' && (
-      <Button
-        component="label"
-        variant="contained"
-        startIcon={<CloudUploadIcon/>}
-        style={{marginLeft: "20px"}}
+     <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginLeft: '20px',
+          padding: '0 10px',
+          borderRadius: '5px',
+          backgroundColor: '#1976d2',
+        }}
       >
-        <VisuallyHiddenInput
-          type="file"
-          accept=".jpg, .jpeg, .png, .webp"
-          onChange={handleAddReference}
+        <AddIcon
+          sx={{
+            color: "white",
+          }}
+          onClick={() => {
+            const input = document.getElementById("addReference")
+            console.log(input)
+            if (input) input.click()
+        }}
         />
-      </Button>
+         <VisuallyHiddenInput
+            type="file"
+            accept=".jpg, .jpeg, .png, .webp"
+            id="addReference"
+            onChange={(e) => {
+              handleAddReference(e)
+            }}
+          />
+      </div>
     )}
     {referenceLabel === 'known' && (
       <div
@@ -187,28 +203,14 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginLeft: '20px',
-          minWidth: '50px',
+          minWidth: '55px',
           padding: '0 10px',
           borderRadius: '5px',
           backgroundColor: '#1976d2',
         }}
       >
-        <PreviewIcon
-          width={"18px"}
-          height={"18px"}
-          onClick={() => {
-            const input = document.getElementById("previewReference")
-            if (input) input.click()
-          }}
-        />
-         <VisuallyHiddenInput
-            type="file"
-            accept=".jpg"
-            id="previewReference"
-            onChange={() => {}}
-          />
         <RefreshIcon
-          sx={{color: "white"}}
+          sx={{color: "white  "}}
           onClick={() => {
             const input = document.getElementById("updateReference")
             console.log(input)
@@ -217,13 +219,13 @@ const ReferenceHandler: React.FC<ReferenceHandlerProps> = ({
         />
          <VisuallyHiddenInput
             type="file"
-            accept=".jpg"
+            accept=".jpg, .jpeg, .png, .webp"
             id="updateReference"
             onChange={(e) => {
               handleUpdateReference(e)
             }}
           />
-        <RemoveIcon
+        <CloseIcon
           sx={{color: "white"}}
           onClick={() => {
             displayStatus('Do you really want to delete ' + inputValue, 'info',
