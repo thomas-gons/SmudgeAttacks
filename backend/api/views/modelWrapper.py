@@ -26,10 +26,6 @@ class ModelWrapper:
 
         # reduce mask to a quad and refine it
         vertices = self.approx_mask_to_polygon(image, polygon)
-        from matplotlib import pyplot as plt
-        plt.imshow(image)
-        plt.scatter(vertices[:, 0], vertices[:, 1])
-        plt.show()
         # deform the original image with this quad
         dst_points = np.array([
                  [0, 0],

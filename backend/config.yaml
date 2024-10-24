@@ -19,7 +19,7 @@ DigitRecognition:
   cluster_eps: 10                   # DBSCAN clustering epsilon
   cluster_min_samples: 20           # DBSCAN clustering min_samples
   bounds: [0.1, 0.9]                # [lower, upper] inner bounds for digit recognition
-  digit_alignment_iter: 2           # number of iterations to ensure good enough cipher matrix recognition (1 to 9)
+  digit_alignment_iter: 5           # number of iterations to ensure good enough cipher matrix recognition (1 to 9)
   digit_alignment_delta: [20, 20]   # [x, y] in pixels for matrix digits alignment
   bbox_padding: [50, 35]            # [w, h] bbox padding in pixels (applied to all sides)
 

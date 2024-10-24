@@ -47,10 +47,6 @@ class PhoneReferences(APIView):
             return HttpResponse(status=422)
 
         bboxes = DigitRecognition(img=image).process_data()
-        pw = PyplotWrapper(True)
-        pw.plot_image(image)
-        pw.plot_bounding_boxes(bboxes)
-        pw.show()
         ref_m = ReferenceModel.objects.create(ref=reference)
         ref_m.save()
         for i, bb in enumerate(bboxes):

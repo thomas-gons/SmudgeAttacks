@@ -90,7 +90,7 @@ const SmudgedPhoneInput: React.FC<SmudgedPhoneInputProps> = ({
         <LightTooltipHelper
           title={
             <React.Fragment>
-              <img src={"https://images.everydayhealth.com/images/diet-nutrition/apples-101-about-1440x810.jpg?sfvrsn=f86f2644_1"}/>
+              <img src={"src/assets/smudge_sample.jpg"} width="325" height="325"/>
             </React.Fragment>
           }
           placement={"right-start"}

@@ -1,9 +1,10 @@
-from io import BytesIO
 from typing import *
 
 import cv2
 import numpy as np
 from sklearn.cluster import DBSCAN
+from torch.ao.quantization.fx.lower_to_fbgemm import lower_to_fbgemm
+
 from api.models import ReferenceModel, BoundingBoxModel
 
 
@@ -74,7 +75,6 @@ class DigitRecognition:
         Retain the centroids of the ones that respect those criteria
         """
         centroids = []
-        plt.imshow(self.images_edges)
         for cluster in clusters:
             cluster = np.array(cluster)
             # get the bounding box
@@ -97,39 +97,61 @@ class DigitRecognition:
         return centroids
 
     def extract_digit_matrix(self, centroids):
-
         """
-        Isolate ciphers from 1 to 9 which form a 3x3 matrix using their vertical
-        and horizontal alignment. In some cases, residuals may remain due to the
-        imperfect alignment conditions imposed by the individual contours recovered.
-            => iter n times (most of the time 2 is enough) to remove residuals centroid
-                (e.g. input dot or texts)
-
-        NOTE: a "while" loop may solve the problem, but at the cost of a certain amount of control.
+        Isolate points that form a 3x3 matrix using geometric constraints.
         """
-        for _ in range(self.digit_alignment_iter):
-            to_keep = []
-            for i, b in enumerate(centroids):
-                near_x_count = 0
-                near_y_count = 0
-                for j, bb in enumerate(centroids):
-                    if b[0] == bb[0] and b[1] == bb[1]:
-                        continue
 
-                    dx = abs(b[0] - bb[0])
-                    dy = abs(b[1] - bb[1])
-                    # margins of error responsible for false positives, but indispensable in practice
-                    if dx < self.digit_alignment_delta[0]:
-                        near_x_count += 1
-                    if dy < self.digit_alignment_delta[1]:
-                        near_y_count += 1
 
-                # as we want to extract element in 3x3 matrix,
-                # each one should be aligned with 2 others vertically and horizontally
-                if near_x_count >= 2 and near_y_count >= 2:
-                    to_keep.append(i)
+        def get_average_spacing(points, axis_index):
 
-            centroids = centroids[np.array(to_keep)]
+            p = np.array(points)[:, axis_index]
+            consecutive_distances = np.diff(np.sort(p))
+
+            return np.mean(consecutive_distances)
+
+        to_keep = []
+        avg_spacings_x = []
+        avg_spacings_y = []
+        new_indexes = {}
+        for i, b in enumerate(centroids):
+            near_x = []
+            near_y = []
+            for j, bb in enumerate(centroids):
+                if i == j:
+                    continue
+
+                dx = abs(b[0] - bb[0])
+                dy = abs(b[1] - bb[1])
+
+                if dx < self.digit_alignment_delta[0]:
+                    near_x.append(bb)
+                if dy < self.digit_alignment_delta[1]:
+                    near_y.append(bb)
+
+
+            if len(near_x) >= 2 and len(near_y) >= 2:
+                to_keep.append(i)
+                new_indexes.update({i: len(avg_spacings_y)})
+                avg_spacings_x.append(get_average_spacing(np.append(near_y, b).reshape(-1, 2), 0))
+                avg_spacings_y.append(get_average_spacing(np.append(near_x, b).reshape(-1, 2), 1))
+
+        centroids = centroids[np.array(to_keep)]
+
+        x_q1, x_q3 = np.percentile(np.array(avg_spacings_x), [25, 75])
+        y_q1, y_q3 = np.percentile(np.array(avg_spacings_y), [25, 75])
+        x_iqr = x_q3 - x_q1
+        y_iqr = y_q3 - y_q1
+
+        x_bounds = (x_q1 - 1.5 * x_iqr, x_q3 + 1.5 * x_iqr)
+        y_bounds = (y_q1 - 1.5 * y_iqr, y_q3 + 1.5 * y_iqr)
+
+        valid_indices = np.where((avg_spacings_x >= x_bounds[0]) & (avg_spacings_x <= x_bounds[1]) &
+                                 (avg_spacings_y >= y_bounds[0]) & (avg_spacings_y <= y_bounds[1]))[0]
+
+        centroids  = centroids[valid_indices]
+
+        if centroids.shape[0] >= 9:
+            centroids = centroids[np.argsort(centroids[:, 1])[:9]]
 
         return centroids
 
