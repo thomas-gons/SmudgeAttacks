@@ -1,14 +1,20 @@
 .idea/
-backend/venv/
+backend/.venv/
 backend/.idea/
 backend/resources/images/
+backend/resources/weights/
+backend/utils/__pycache__/
 backend/backend/__pycache__/
 backend/api/__pycache__/
 backend/api/views/__pycache__/
 backend/api/migrations/__pycache/
+backend/
+
+**/__pycache__/
 
 frontend/.idea
 frontend/node_modules/
+frontend/package-lock.json/
 frontend/dist
 frontend/dist-ssr
 frontend/*.local
