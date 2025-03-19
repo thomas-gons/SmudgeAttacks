@@ -15,7 +15,7 @@ Avant de commencer, assurez-vous d’avoir installé :
 
 ## Poids des modèles
 
-Avant de procéder à l'installation assurer-vous d'avoir téléchargé les poids des modèles et de les avoir mis dans le répertoire ``backend/resources/models``.
+Avant de procéder à l'installation assurez-vous d'avoir téléchargé les poids des modèles et de les avoir mis dans le répertoire ``backend/resources/models``.
 La configuration de ces derniers ainsi que de leur chemin d'accès peuvent être consultés dans ``backend/config.yaml``
 ## Installation du Backend (Django)
 

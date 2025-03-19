@@ -1,22 +1,25 @@
+# Fichiers et dossiers liés aux IDE
 .idea/
-backend/.venv/
-backend/.idea/
-backend/resources/images/
-backend/resources/weights/
-backend/utils/__pycache__/
-backend/backend/__pycache__/
-backend/api/__pycache__/
-backend/api/views/__pycache__/
-backend/api/migrations/__pycache/
-backend/
 
+# Environnements virtuels
+backend/.venv/
+
+# Cache Python
 **/__pycache__/
 
-frontend/.idea
+# Ressources lourdes ou générées
+backend/resources/images/
+backend/resources/weights/
+
+# Fichiers générés par Python/Django
+backend/api/migrations/__pycache__/
+backend/runs/
+
+# Node.js et frontend
 frontend/node_modules/
 frontend/package-lock.json/
-frontend/dist
-frontend/dist-ssr
+frontend/dist/
+frontend/dist-ssr/
 frontend/*.local
 
 runs/
