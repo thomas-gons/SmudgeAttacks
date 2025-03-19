@@ -17,6 +17,10 @@ Ce projet vise à explorer une approche alternative basée sur l’extraction et
 Les instructions d’installation sont disponibles dans **[INSTALL.md](INSTALL.md)**.
 
 
+## Utilisation
+
+Les détails d'utilisation de l'interface sont écrits dans [MANUAL.md](MANUAL.md)
+
 ## Pipeline de récupération du code PIN à partir des traces d'utilisation sur l'écran
 
 1. Acquisition des données
@@ -51,8 +55,6 @@ Ces datasets concernent uniquement les codes PINs à 4 et 6 chiffres.
 
 ![Exemple](docs/inference.png)
 *Exemple d'inférence (code attendu 180734)*
-
-Des détails supplémentaires sur le fonctionnement et l'utilisation de l'outil sont disponibles dans [MANUAL.md](MANUAL.md)
 
 ## Citation
 
