@@ -1,12 +1,10 @@
 from django.http import HttpResponse
-from django.contrib.auth.models import User
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import generics
-
-from api.serializers import UserSerializer, ReferenceSerializer
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
+
+
+from api.serializers import ReferenceSerializer
 from django.core.handlers.wsgi import WSGIRequest
 
 import json
@@ -19,15 +17,8 @@ from utils.cipher_to_literal import ciphers_to_literal
 from api.views.boundingBox import select_bounding_boxes
 
 
-class CreateUserView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [AllowAny]
-
-
 class PhoneReferences(APIView):
     serializer_class = ReferenceSerializer
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         references = ReferenceModel.objects.all()

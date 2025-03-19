@@ -16,10 +16,29 @@ Ce projet vise à explorer une approche alternative basée sur l’extraction et
 
 Les instructions d’installation sont disponibles dans **[INSTALL.md](INSTALL.md)**.
 
-## Fonctionnalités
 
-- Évaluation des séquences les plus "probables" : Classement des codes PIN potentiels en fonction des métriques sélectionnées.
+## Pipeline de récupération du code PIN à partir des traces d'utilisation sur l'écran
+
+1. Acquisition des données
+   - Téléversement d’une photo de l’écran du téléphone éteint, contenant des traces d’utilisation.
+   - Fourniture du modèle du téléphone pour récupérer la disposition du clavier numérique correspondant.
+   - Indication de la longueur du code PIN attendu 
+2. Normalisation de l'image
+   - Correction de la perspective et alignement afin de correspondre à la disposition de référence du clavier numérique. 
+3. Récupération de la séquence de chiffres du code PIN
+   - Détection des traces.
+   - Association des traces détectées aux touches correspondantes à l'aide de la disposition de référence.
+4. Génération et classement des codes PIN potentiels
+   - Génération de séquences de codes PIN probables en fonction des positions détectées et de la longueur spécifiée.
+   - Classement des codes PIN potentiels en fonction des métriques sélectionnées.
+5. Restitution des résultats
+   - Affichage des codes PIN les plus probables, triés selon leur score de confiance.
+
+
+## Fonctionnalités supplémentaires
+
 - Modification de la longueur du code PIN attendu.
+- Ajout, mise à jour et suppression de disposition du clavier numérique à la base de données
 - Possibilités de donner des indices pour le code PIN : Intégration de pistes ou restrictions pouvant orienter l'analyse.
 - Correction des traces inférées si le nombre de traces est incorrecte :
   - mode manuel : ajout, suppression et répétition de chiffres pour atteindre la longueur attendue ;
